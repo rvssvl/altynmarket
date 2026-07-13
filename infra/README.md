@@ -26,7 +26,8 @@ production credentials or data.
 
 The staging proxy requires HTTP Basic authentication for every public service.
 Generate a long, unique staging password and store only its Caddy bcrypt hash
-in `STAGING_ACCESS_PASSWORD_HASH`; do not reuse it for any account.
+in `STAGING_ACCESS_PASSWORD_HASH`; double every `$` in that hash as `$$` for
+Docker Compose. Do not reuse the password for any account.
 
 The bootstrap script is in `scripts/bootstrap-vps.sh`; copy it to the server
 before running it. Do not run it from the release workflow.
