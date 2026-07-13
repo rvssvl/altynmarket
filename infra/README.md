@@ -24,6 +24,12 @@ production credentials or data.
 5. Point the three staging DNS names at the VPS IPv4 address before the first
    deployment. Caddy obtains and renews the TLS certificates automatically.
 
+The public marketing landing can share this VPS without publishing the staging
+API or backoffice. Point `altyn-market.kz` and `www.altyn-market.kz` at the
+VPS only after a release containing the public landing route is active.
+These two public names proxy solely to the landing service; the three staging
+names remain protected by HTTP Basic authentication.
+
 The staging proxy requires HTTP Basic authentication for every public service.
 Generate a long, unique staging password and store only its Caddy bcrypt hash
 in `STAGING_ACCESS_PASSWORD_HASH`; double every `$` in that hash as `$$` for

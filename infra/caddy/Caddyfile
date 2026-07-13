@@ -8,6 +8,11 @@
   }
 }
 
+{$PUBLIC_LANDING_DOMAIN}, {$PUBLIC_LANDING_WWW_DOMAIN} {
+  encode zstd gzip
+  reverse_proxy landing:4174
+}
+
 {$API_DOMAIN} {
   import staging_access
   encode zstd gzip
