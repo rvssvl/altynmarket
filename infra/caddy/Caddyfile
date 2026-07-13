@@ -3,7 +3,11 @@
 }
 
 (staging_access) {
-  basic_auth {
+  # Browsers never attach HTTP Basic credentials to a cross-origin CORS
+  # preflight. Let OPTIONS reach the API, which returns its CORS policy; all
+  # requests that can read or mutate staging data still require Basic auth.
+  @requires_staging_auth not method OPTIONS
+  basic_auth @requires_staging_auth {
     {$STAGING_ACCESS_USER} {$STAGING_ACCESS_PASSWORD_HASH}
   }
 }
