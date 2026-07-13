@@ -11,7 +11,7 @@ DEPLOY_USER=${DEPLOY_USER:-altyn-deploy}
 APP_ROOT=/opt/altyn-market
 
 apt-get update
-apt-get install --yes ca-certificates curl git rsync ufw gnupg
+apt-get install --yes ca-certificates curl git rsync ufw gnupg restic
 
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg \

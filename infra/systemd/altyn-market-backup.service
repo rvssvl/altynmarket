@@ -1,0 +1,11 @@
+[Unit]
+Description=Encrypted Altyn Market staging PostgreSQL backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/altyn-market/current/infra/scripts/backup-postgres.sh
+User=root
+Group=root
+Nice=10

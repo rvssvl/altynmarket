@@ -45,7 +45,28 @@ never copied by CI and never committed.
 
 ## Backups
 
-This single-VPS staging database is not a production database. Configure an
-encrypted nightly `pg_dump` to a private Kazakhstan-resident object-storage
-bucket before using it for customer testing. Test a restore after the first
-backup and at least monthly.
+This single-VPS staging database is not a production database. Before customer
+testing, create a private Kazakhstan-resident PS Cloud Object Storage bucket
+and save its S3-compatible credentials in
+`/etc/altyn-market/staging-backup.env` (mode `0600`):
+
+```bash
+RESTIC_REPOSITORY=s3:https://<ps-cloud-s3-endpoint>/<bucket>/altyn-market-staging
+RESTIC_PASSWORD_FILE=/etc/altyn-market/restic-password
+AWS_ACCESS_KEY_ID=replace-me
+AWS_SECRET_ACCESS_KEY=replace-me
+```
+
+Create `/etc/altyn-market/restic-password` with a unique random value and mode
+`0600`. Copy the two `infra/systemd/altyn-market-backup.*` files to
+`/etc/systemd/system/`, then run:
+
+```bash
+systemctl daemon-reload
+systemctl enable --now altyn-market-backup.timer
+systemctl start altyn-market-backup.service
+```
+
+The job makes an encrypted nightly PostgreSQL dump, retains 14 daily, 8 weekly,
+and 12 monthly backups, and verifies a sample of repository data. Test a full
+restore after the first backup and at least monthly.
