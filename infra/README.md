@@ -34,6 +34,10 @@ The staging proxy requires HTTP Basic authentication for every public service.
 Generate a long, unique staging password and store only its Caddy bcrypt hash
 in `STAGING_ACCESS_PASSWORD_HASH`; double every `$` in that hash as `$$` for
 Docker Compose. Do not reuse the password for any account.
+Set `STAGING_ACCESS_SESSION_TOKEN` to a separate high-entropy value (for
+example, `openssl rand -hex 32`). Caddy turns a successful Basic sign-in into
+an HttpOnly, same-origin staging cookie, allowing the backoffice's Bearer
+session to reach the API without weakening staging access control.
 
 The bootstrap script is in `scripts/bootstrap-vps.sh`; copy it to the server
 before running it. Do not run it from the release workflow.

@@ -19,6 +19,7 @@ services:
       PUBLIC_LANDING_WWW_DOMAIN: ${PUBLIC_LANDING_WWW_DOMAIN:?Set PUBLIC_LANDING_WWW_DOMAIN in /etc/altyn-market/staging.env}
       STAGING_ACCESS_USER: ${STAGING_ACCESS_USER:?Set STAGING_ACCESS_USER in /etc/altyn-market/staging.env}
       STAGING_ACCESS_PASSWORD_HASH: ${STAGING_ACCESS_PASSWORD_HASH:?Set STAGING_ACCESS_PASSWORD_HASH in /etc/altyn-market/staging.env}
+      STAGING_ACCESS_SESSION_TOKEN: ${STAGING_ACCESS_SESSION_TOKEN:?Set STAGING_ACCESS_SESSION_TOKEN in /etc/altyn-market/staging.env}
     ports:
       - "80:80"
       - "443:443"

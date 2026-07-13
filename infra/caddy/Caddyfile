@@ -3,9 +3,14 @@
 }
 
 (staging_access) {
-  basic_auth {
+  # The browser uses Authorization for both Basic auth and the backoffice's
+  # Bearer session. After a successful Basic sign-in, persist a separate
+  # HttpOnly same-origin cookie so Bearer requests can still reach the API.
+  @requires_staging_auth not header_regexp Cookie "(^|;\\s*)altyn_staging_access={$STAGING_ACCESS_SESSION_TOKEN}(;|$)"
+  basic_auth @requires_staging_auth {
     {$STAGING_ACCESS_USER} {$STAGING_ACCESS_PASSWORD_HASH}
   }
+  header +Set-Cookie "altyn_staging_access={$STAGING_ACCESS_SESSION_TOKEN}; Path=/; Max-Age=43200; Secure; HttpOnly; SameSite=Strict"
 }
 
 {$PUBLIC_LANDING_DOMAIN}, {$PUBLIC_LANDING_WWW_DOMAIN} {
@@ -14,35 +19,41 @@
 }
 
 {$API_DOMAIN} {
-  import staging_access
-  encode zstd gzip
-  reverse_proxy api:4000
+  route {
+    import staging_access
+    encode zstd gzip
+    reverse_proxy api:4000
+  }
 }
 
 {$ADMIN_DOMAIN} {
-  import staging_access
+  route {
+    import staging_access
 
-  # Proxy the API through the same origin as the backoffice. HTTP Basic
-  # credentials are scoped to an origin, so a browser cannot reuse the admin
-  # password on a separate api-staging subdomain.
-  handle /api/* {
-    encode zstd gzip
-    reverse_proxy api:4000
-  }
+    # Proxy the API through the same origin as the backoffice. HTTP Basic
+    # credentials are scoped to an origin, so a browser cannot reuse the admin
+    # password on a separate api-staging subdomain.
+    handle /api/* {
+      encode zstd gzip
+      reverse_proxy api:4000
+    }
 
-  handle /health {
-    encode zstd gzip
-    reverse_proxy api:4000
-  }
+    handle /health {
+      encode zstd gzip
+      reverse_proxy api:4000
+    }
 
-  handle {
-    encode zstd gzip
-    reverse_proxy backoffice:4173
+    handle {
+      encode zstd gzip
+      reverse_proxy backoffice:4173
+    }
   }
 }
 
 {$LANDING_DOMAIN} {
-  import staging_access
-  encode zstd gzip
-  reverse_proxy landing:4174
+  route {
+    import staging_access
+    encode zstd gzip
+    reverse_proxy landing:4174
+  }
 }
