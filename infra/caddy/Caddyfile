@@ -2,17 +2,26 @@
   email {$ACME_EMAIL}
 }
 
+(staging_access) {
+  basic_auth {
+    {$STAGING_ACCESS_USER} {$STAGING_ACCESS_PASSWORD_HASH}
+  }
+}
+
 {$API_DOMAIN} {
+  import staging_access
   encode zstd gzip
   reverse_proxy api:4000
 }
 
 {$ADMIN_DOMAIN} {
+  import staging_access
   encode zstd gzip
   reverse_proxy backoffice:4173
 }
 
 {$LANDING_DOMAIN} {
+  import staging_access
   encode zstd gzip
   reverse_proxy landing:4174
 }
