@@ -1,0 +1,20 @@
+.git
+.github
+.pnpm-store
+node_modules
+**/node_modules
+dist
+**/dist
+coverage
+.env
+.env.*
+!.env.example
+repos
+.DS_Store
+*.tsbuildinfo
+
+# Mobile apps and their generated iOS projects are not part of the web/API
+# staging release. Excluding them makes VPS builds small enough for Basic-3.
+apps/customer-mobile
+apps/staff-mobile
+docs

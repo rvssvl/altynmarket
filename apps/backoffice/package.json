@@ -1,0 +1,19 @@
+{
+  "name": "@altyn-market/admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b && vite build",
+    "dev": "vite --host 0.0.0.0",
+    "start": "node server.mjs",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@altyn-market/client": "workspace:*",
+    "@altyn-market/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0"
+  }
+}

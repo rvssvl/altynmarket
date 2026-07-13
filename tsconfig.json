@@ -1,0 +1,13 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/domain" },
+    { "path": "./packages/database" },
+    { "path": "./packages/client" },
+    { "path": "./apps/api" },
+    { "path": "./apps/backoffice" },
+    { "path": "./apps/landing" },
+    { "path": "./apps/customer-mobile" },
+    { "path": "./apps/staff-mobile" }
+  ]
+}

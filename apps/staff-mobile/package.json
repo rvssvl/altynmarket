@@ -1,0 +1,28 @@
+{
+  "name": "@altyn-market/mobile-staff",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "expo start --port 8083",
+    "ios": "expo start --ios --port 8083",
+    "test": "vitest run --passWithNoTests --dir src"
+  },
+  "dependencies": {
+    "@altyn-market/client": "workspace:*",
+    "@altyn-market/domain": "workspace:*",
+    "expo": "^56.0.12",
+    "expo-asset": "^56.0.17",
+    "expo-modules-core": "~56.0.17",
+    "expo-status-bar": "~56.0.4",
+    "hermes-compiler": "^250829098.0.2",
+    "react": "19.2.3",
+    "react-native": "^0.85.3",
+    "react-native-safe-area-context": "~5.7.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0"
+  }
+}

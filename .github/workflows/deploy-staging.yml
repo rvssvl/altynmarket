@@ -1,0 +1,77 @@
+name: Deploy staging
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: staging-deployment
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify application
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build deployable services
+        run: pnpm build:api && pnpm build:backoffice && pnpm build:landing
+      - name: Run API workflow tests
+        run: pnpm --filter @altyn-market/server test
+
+  deploy:
+    name: Deploy staging release
+    needs: verify
+    runs-on: ubuntu-24.04
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+      - name: Upload immutable release
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          STAGING_SSH_PORT: ${{ secrets.STAGING_SSH_PORT }}
+        run: |
+          release_path="/opt/altyn-market/releases/${GITHUB_SHA}"
+          ssh -p "$STAGING_SSH_PORT" "$STAGING_SSH_USER@$STAGING_HOST" "mkdir -p '$release_path'"
+          rsync --archive --delete \
+            --exclude .git \
+            --exclude .github \
+            --exclude .pnpm-store \
+            --exclude node_modules \
+            --exclude dist \
+            --exclude .env \
+            --exclude '.env.*' \
+            -e "ssh -p $STAGING_SSH_PORT" \
+            ./ "$STAGING_SSH_USER@$STAGING_HOST:$release_path/"
+      - name: Activate release
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          STAGING_SSH_PORT: ${{ secrets.STAGING_SSH_PORT }}
+        run: |
+          ssh -p "$STAGING_SSH_PORT" "$STAGING_SSH_USER@$STAGING_HOST" \
+            "chmod +x /opt/altyn-market/releases/${GITHUB_SHA}/infra/scripts/deploy-release.sh && /opt/altyn-market/releases/${GITHUB_SHA}/infra/scripts/deploy-release.sh ${GITHUB_SHA}"

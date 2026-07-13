@@ -1,0 +1,11 @@
+node_modules
+dist
+dist-verify
+coverage
+.expo
+.env
+.env.*
+!.env.example
+repos
+.DS_Store
+*.tsbuildinfo

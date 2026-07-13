@@ -1,0 +1,3 @@
+{
+  "ignorePatterns": ["repos/**", "dist/**", "node_modules/**", "*.tsbuildinfo"]
+}

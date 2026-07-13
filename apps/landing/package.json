@@ -1,0 +1,14 @@
+{
+  "name": "@altyn-market/landing",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b && vite build",
+    "dev": "vite --host 0.0.0.0",
+    "start": "node server.mjs",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0"
+  }
+}

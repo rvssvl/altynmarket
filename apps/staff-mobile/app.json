@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Altyn Market Staff",
+    "slug": "altyn-market-staff",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "altynmarketstaff",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "kz.altynmarket.staff"
+    },
+    "android": {
+      "package": "kz.altynmarket.staff"
+    },
+    "extra": {
+      "apiBaseUrl": "https://altyn-market-api-stage-production.up.railway.app"
+    }
+  }
+}

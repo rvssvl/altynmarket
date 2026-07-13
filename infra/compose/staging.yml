@@ -1,0 +1,156 @@
+name: altyn-market-staging
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    depends_on:
+      api:
+        condition: service_healthy
+      backoffice:
+        condition: service_healthy
+      landing:
+        condition: service_healthy
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in /etc/altyn-market/staging.env}
+      API_DOMAIN: ${API_DOMAIN:?Set API_DOMAIN in /etc/altyn-market/staging.env}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?Set ADMIN_DOMAIN in /etc/altyn-market/staging.env}
+      LANDING_DOMAIN: ${LANDING_DOMAIN:?Set LANDING_DOMAIN in /etc/altyn-market/staging.env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - public
+      - application
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in /etc/altyn-market/staging.env}
+      DATABASE_SSL: "0"
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Set JWT_ACCESS_SECRET in /etc/altyn-market/staging.env}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET in /etc/altyn-market/staging.env}
+      WEB_ORIGIN: https://${ADMIN_DOMAIN}
+      PUBLIC_API_BASE_URL: https://${API_DOMAIN}
+      PUBLIC_REALTIME_URL: https://${API_DOMAIN}/realtime
+      BOOTSTRAP_ADMIN_PHONE: ${BOOTSTRAP_ADMIN_PHONE:?Set BOOTSTRAP_ADMIN_PHONE in /etc/altyn-market/staging.env}
+      AUTH_EXPOSE_DEV_CODE: "1"
+      AUTH_DEV_OTP: ${AUTH_DEV_OTP:?Set AUTH_DEV_OTP in /etc/altyn-market/staging.env}
+      OTP_PROVIDER: console
+      PUSH_PROVIDER: console
+      PAYMENT_PROVIDER: mock
+      DELIVERY_FLAT_FEE_KZT: ${DELIVERY_FLAT_FEE_KZT:-1500}
+    networks:
+      - application
+      - database
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  backoffice:
+    build:
+      context: ../..
+      dockerfile: infra/docker/backoffice.Dockerfile
+      args:
+        PUBLIC_API_BASE_URL: https://${API_DOMAIN}
+    networks:
+      - application
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4173/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  landing:
+    build:
+      context: ../..
+      dockerfile: infra/docker/landing.Dockerfile
+      args:
+        VITE_CUSTOMER_APP_URL: ${VITE_CUSTOMER_APP_URL:-}
+    networks:
+      - application
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4174/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in /etc/altyn-market/staging.env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in /etc/altyn-market/staging.env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in /etc/altyn-market/staging.env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - database
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+networks:
+  public:
+  application:
+    internal: true
+  database:
+    internal: true
+
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:

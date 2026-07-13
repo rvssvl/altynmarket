@@ -1,0 +1,37 @@
+{
+  "name": "altyn-market",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Altyn Market B2C delivery MVP.",
+  "packageManager": "pnpm@10.14.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter './apps/*' dev",
+    "build": "pnpm -r --filter './packages/*' --filter './apps/*' build",
+    "build:server": "pnpm --filter @altyn-market/server build",
+    "build:admin": "pnpm --filter @altyn-market/admin build",
+    "build:api": "pnpm --filter @altyn-market/server build",
+    "build:backoffice": "pnpm --filter @altyn-market/admin build",
+    "build:landing": "pnpm --filter @altyn-market/landing build",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+    "format:check": "oxfmt --check .",
+    "lint": "oxlint --type-aware",
+    "typecheck": "tsc -b",
+    "test": "pnpm -r --filter './packages/*' --filter './apps/*' test",
+    "db:migrate": "pnpm --filter @altyn-market/database db:migrate",
+    "setup:refs": "./scripts/setup-worktree.sh"
+  },
+  "engines": {
+    "node": ">=22.12.0",
+    "pnpm": ">=10.14.0"
+  },
+  "devDependencies": {
+    "oxfmt": "^0.7.0",
+    "oxlint": "^1.6.0",
+    "oxlint-tsgolint": "^0.23.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0",
+    "vite-node": "^3.2.0",
+    "vitest": "^3.2.0",
+    "@types/node": "^22.10.0"
+  }
+}
