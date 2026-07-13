@@ -27,6 +27,7 @@ if ! id "${DEPLOY_USER}" >/dev/null 2>&1; then
   adduser --disabled-password --gecos "" "${DEPLOY_USER}"
 fi
 usermod -aG docker "${DEPLOY_USER}"
+install -d -o "${DEPLOY_USER}" -g "${DEPLOY_USER}" -m 0750 "${APP_ROOT}"
 install -d -o "${DEPLOY_USER}" -g "${DEPLOY_USER}" -m 0750 "${APP_ROOT}/releases"
 install -d -o root -g "${DEPLOY_USER}" -m 0750 /etc/altyn-market
 
