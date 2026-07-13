@@ -70,6 +70,7 @@ let devOtp: string | undefined;
 let editingCategoryId: string | undefined;
 let editingProductId: string | undefined;
 let selectedPriceProductId: string | undefined;
+let catalogModal: "product" | "category" | undefined;
 let locale: AppLocale = readStoredLocale();
 let navOpen = false;
 
@@ -506,6 +507,116 @@ style.textContent = `
     max-width: 1450px;
   }
 
+  .catalog-layout {
+    display: grid;
+    gap: 18px;
+  }
+
+  .catalog-panel {
+    width: 100%;
+  }
+
+  .catalog-panel table {
+    min-width: 920px;
+    table-layout: fixed;
+  }
+
+  .catalog-panel th:nth-child(1),
+  .catalog-panel td:nth-child(1) { width: 74px; }
+  .catalog-panel th:nth-child(2),
+  .catalog-panel td:nth-child(2) { width: 27%; }
+  .catalog-panel th:nth-child(3),
+  .catalog-panel td:nth-child(3) { width: 14%; }
+  .catalog-panel th:nth-child(4),
+  .catalog-panel td:nth-child(4) { width: 10%; }
+  .catalog-panel th:nth-child(5),
+  .catalog-panel td:nth-child(5) { width: 17%; }
+  .catalog-panel th:nth-child(6),
+  .catalog-panel td:nth-child(6) { width: 15%; }
+  .catalog-panel th:nth-child(7),
+  .catalog-panel td:nth-child(7) { width: 17%; }
+
+  .modal-overlay {
+    align-items: center;
+    background: #16382c73;
+    backdrop-filter: blur(5px);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    padding: 20px;
+    position: fixed;
+    z-index: 50;
+  }
+
+  .modal {
+    background: #fffdf8;
+    border: 1px solid #e0ddcb;
+    border-radius: 18px;
+    box-shadow: 0 28px 90px #0f281e58;
+    max-height: calc(100vh - 40px);
+    max-width: 760px;
+    overflow: auto;
+    width: 100%;
+  }
+
+  .modal-head {
+    align-items: flex-start;
+    border-bottom: 1px solid #ebe6d8;
+    display: flex;
+    gap: 16px;
+    justify-content: space-between;
+    padding: 18px 20px;
+  }
+
+  .modal-head h3 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 26px;
+    font-weight: 500;
+    letter-spacing: -.045em;
+    margin: 0;
+  }
+
+  .catalog-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .catalog-form .full,
+  .catalog-form .form-actions {
+    grid-column: 1 / -1;
+  }
+
+  .check-row {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+  }
+
+  .form-actions {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  .audit-details {
+    display: grid;
+    gap: 5px;
+  }
+
+  .audit-detail {
+    color: #4d6559;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .audit-detail-label {
+    color: #79857b;
+    display: inline-block;
+    font-weight: 800;
+    margin-right: 6px;
+  }
+
   .form {
     display: grid;
     gap: 13px;
@@ -724,6 +835,11 @@ style.textContent = `
     .metric strong { font-size: 27px; }
     .panel-head { min-height: 58px; padding: 13px 15px; }
     .form, .chart { padding: 15px; }
+    .modal-overlay { align-items: flex-end; padding: 0; }
+    .modal { border-bottom-left-radius: 0; border-bottom-right-radius: 0; max-height: min(88vh, 760px); }
+    .modal-head { padding: 16px; }
+    .catalog-form { grid-template-columns: 1fr; }
+    .catalog-form .full, .catalog-form .form-actions { grid-column: auto; }
     .table-wrap { overflow: visible; }
     table, tbody, tr, td { display: block; min-width: 0; width: 100%; }
     thead { display: none; }
@@ -736,6 +852,7 @@ style.textContent = `
     .row-actions { justify-content: flex-start; }
     .inline-form { align-items: stretch; }
     .inline-form input, .inline-form select { flex: 1 1 120px; min-width: 0; width: 100%; }
+    .catalog-panel table { min-width: 0; table-layout: auto; }
   }
 
   @media (max-width: 430px) {
@@ -794,8 +911,13 @@ const translations: Record<AppLocale, Readonly<Record<string, string>>> = {
     "No orders in this period yet.": "За этот период заказов пока нет.",
     "No active order statuses yet.": "Активных статусов пока нет.",
     payment_authorized: "Оплата подтверждена",
+    payment_captured: "Оплата списана",
     awaiting_picking: "Ожидает сборки",
+    awaiting_courier: "Ожидает курьера",
     picking: "Собирается",
+    picked: "Собран",
+    pending: "Ожидает",
+    ready_for_delivery: "Готов к доставке",
     delivering: "В доставке",
     delivered: "Доставлен",
     payment_failed: "Ошибка оплаты",
@@ -838,6 +960,7 @@ const translations: Record<AppLocale, Readonly<Record<string, string>>> = {
     "Add product": "Добавить товар",
     "Edit product": "Изменить товар",
     Cancel: "Отменить",
+    Close: "Закрыть",
     Name: "Название",
     Description: "Описание",
     "Image URL": "Ссылка на изображение",
@@ -943,8 +1066,13 @@ const translations: Record<AppLocale, Readonly<Record<string, string>>> = {
     "No orders in this period yet.": "Бұл кезеңде әлі тапсырыс жоқ.",
     "No active order statuses yet.": "Белсенді мәртебелер әлі жоқ.",
     payment_authorized: "Төлем расталды",
+    payment_captured: "Төлем алынды",
     awaiting_picking: "Жинақтауды күтуде",
+    awaiting_courier: "Курьерді күтуде",
     picking: "Жинақталуда",
+    picked: "Жиналды",
+    pending: "Күтуде",
+    ready_for_delivery: "Жеткізуге дайын",
     delivering: "Жеткізілуде",
     delivered: "Жеткізілді",
     payment_failed: "Төлем қатесі",
@@ -987,6 +1115,7 @@ const translations: Record<AppLocale, Readonly<Record<string, string>>> = {
     "Add product": "Тауар қосу",
     "Edit product": "Тауарды өзгерту",
     Cancel: "Бас тарту",
+    Close: "Жабу",
     Name: "Атауы",
     Description: "Сипаттама",
     "Image URL": "Сурет сілтемесі",
@@ -1048,6 +1177,165 @@ const translations: Record<AppLocale, Readonly<Record<string, string>>> = {
     "Refund reason": "Қайтару себебі",
     "Issue refund": "Қайтару",
     Unassigned: "Тағайындалмаған",
+  },
+};
+
+const auditActionLabels: Record<AppLocale, Readonly<Record<string, string>>> = {
+  en: {
+    "admin.category_create": "Category created",
+    "admin.category_update": "Category updated",
+    "admin.product_create": "Product created",
+    "admin.product_update": "Product updated",
+    "admin.product_availability_update": "Availability updated",
+    "admin.product_price_update": "Product price updated",
+    "admin.assign_picker": "Picker assigned",
+    "admin.assign_courier": "Courier assigned",
+    "admin.staff_create": "Staff account created",
+    "admin.staff_deactivate": "Staff account deactivated",
+    "admin.payment_refund": "Refund created",
+    "admin.payment_status_update": "Payment status updated",
+    "picking.start": "Picking started",
+    "picking.item_picked": "Item picked",
+    "picking.complete": "Picking completed",
+    "picking.item_cancelled": "Item cancelled",
+    "delivery.status_update": "Delivery status updated",
+    "customer.push_token_registered": "Push notifications enabled",
+  },
+  ru: {
+    "admin.category_create": "Создана категория",
+    "admin.category_update": "Изменена категория",
+    "admin.product_create": "Создан товар",
+    "admin.product_update": "Изменён товар",
+    "admin.product_availability_update": "Обновлено наличие",
+    "admin.product_price_update": "Обновлена цена товара",
+    "admin.assign_picker": "Назначен сборщик",
+    "admin.assign_courier": "Назначен курьер",
+    "admin.staff_create": "Создана учётная запись сотрудника",
+    "admin.staff_deactivate": "Отключена учётная запись сотрудника",
+    "admin.payment_refund": "Создан возврат",
+    "admin.payment_status_update": "Обновлён статус платежа",
+    "picking.start": "Начата сборка",
+    "picking.item_picked": "Товар собран",
+    "picking.complete": "Сборка завершена",
+    "picking.item_cancelled": "Товар отменён",
+    "delivery.status_update": "Обновлён статус доставки",
+    "customer.push_token_registered": "Подключены push-уведомления",
+  },
+  kk: {
+    "admin.category_create": "Санат құрылды",
+    "admin.category_update": "Санат өзгертілді",
+    "admin.product_create": "Тауар құрылды",
+    "admin.product_update": "Тауар өзгертілді",
+    "admin.product_availability_update": "Қолжетімділік жаңартылды",
+    "admin.product_price_update": "Тауар бағасы жаңартылды",
+    "admin.assign_picker": "Жинаушы тағайындалды",
+    "admin.assign_courier": "Курьер тағайындалды",
+    "admin.staff_create": "Қызметкер аккаунты құрылды",
+    "admin.staff_deactivate": "Қызметкер аккаунты өшірілді",
+    "admin.payment_refund": "Қайтарым құрылды",
+    "admin.payment_status_update": "Төлем мәртебесі жаңартылды",
+    "picking.start": "Жинақтау басталды",
+    "picking.item_picked": "Тауар жиналды",
+    "picking.complete": "Жинақтау аяқталды",
+    "picking.item_cancelled": "Тауар жойылды",
+    "delivery.status_update": "Жеткізу мәртебесі жаңартылды",
+    "customer.push_token_registered": "Push хабарландырулары қосылды",
+  },
+};
+
+const auditEntityLabels: Record<AppLocale, Readonly<Record<string, string>>> = {
+  en: {
+    category: "Category",
+    product: "Product",
+    order: "Order",
+    order_item: "Order item",
+    payment: "Payment",
+    staff_profile: "Staff profile",
+    push_subscription: "Push subscription",
+  },
+  ru: {
+    category: "Категория",
+    product: "Товар",
+    order: "Заказ",
+    order_item: "Позиция заказа",
+    payment: "Платёж",
+    staff_profile: "Сотрудник",
+    push_subscription: "Push-подписка",
+  },
+  kk: {
+    category: "Санат",
+    product: "Тауар",
+    order: "Тапсырыс",
+    order_item: "Тапсырыс тауары",
+    payment: "Төлем",
+    staff_profile: "Қызметкер",
+    push_subscription: "Push-жазылым",
+  },
+};
+
+const auditFieldLabels: Record<AppLocale, Readonly<Record<string, string>>> = {
+  en: {
+    name: "Name",
+    slug: "Slug",
+    customerPriceMinor: "Customer price",
+    internalCostMinor: "Internal cost",
+    isActive: "Active",
+    isAvailable: "Available",
+    availabilityNote: "Availability note",
+    pickerId: "Picker",
+    courierId: "Courier",
+    roles: "Roles",
+    refundId: "Refund",
+    amountMinor: "Amount",
+    reason: "Reason",
+    status: "Status",
+    orderId: "Order",
+    pickedQuantity: "Picked quantity",
+    finalTotalMinor: "Final total",
+    paymentStatus: "Payment status",
+    platform: "Platform",
+  },
+  ru: {
+    name: "Название",
+    slug: "Слаг",
+    customerPriceMinor: "Цена для клиента",
+    internalCostMinor: "Себестоимость",
+    isActive: "Активность",
+    isAvailable: "Наличие",
+    availabilityNote: "Комментарий о наличии",
+    pickerId: "Сборщик",
+    courierId: "Курьер",
+    roles: "Роли",
+    refundId: "Возврат",
+    amountMinor: "Сумма",
+    reason: "Причина",
+    status: "Статус",
+    orderId: "Заказ",
+    pickedQuantity: "Собрано",
+    finalTotalMinor: "Итоговая сумма",
+    paymentStatus: "Статус платежа",
+    platform: "Платформа",
+  },
+  kk: {
+    name: "Атауы",
+    slug: "Слаг",
+    customerPriceMinor: "Клиент бағасы",
+    internalCostMinor: "Өзіндік құны",
+    isActive: "Белсенділік",
+    isAvailable: "Қолжетімділік",
+    availabilityNote: "Қолжетімділік ескертпесі",
+    pickerId: "Жинаушы",
+    courierId: "Курьер",
+    roles: "Рөлдер",
+    refundId: "Қайтарым",
+    amountMinor: "Сома",
+    reason: "Себеп",
+    status: "Мәртебе",
+    orderId: "Тапсырыс",
+    pickedQuantity: "Жиналғаны",
+    finalTotalMinor: "Қорытынды сома",
+    paymentStatus: "Төлем мәртебесі",
+    platform: "Платформа",
   },
 };
 
@@ -1338,56 +1626,82 @@ function renderOrderStatusChart(): string {
 
 function renderCatalog(): string {
   return `
-    <div class="grid">
-      <section>
-        <div class="panel">
-          <div class="panel-head">
-            <h3>${t("Products")}</h3>
-            <button class="secondary" type="button" data-action="new-product">${t("New product")}</button>
-          </div>
-          ${table(
-            ["", "Product", "Category", "Unit", "Price", "State", ""].map(t),
-            data.products.map(({ product, price, availability }) => [
-              product.imageUrl
-                ? `<img class="thumb" src="${escapeAttribute(product.imageUrl)}" alt="${escapeAttribute(product.name)}" />`
-                : `<div class="thumb" aria-hidden="true"></div>`,
-              `<strong>${escapeHtml(product.name)}</strong>${product.description ? `<br><span class="muted">${escapeHtml(product.description)}</span>` : ""}`,
-              escapeHtml(categoryName(product.categoryId)),
-              escapeHtml(product.unit),
-              `${formatMoney(price.customerPrice)}<br><span class="muted">${t("Cost")} ${price.internalCost ? formatMoney(price.internalCost) : "-"}</span>`,
-              `${product.isActive ? badge(t("Active"), "ok") : badge(t("Inactive"), "bad")} ${availability.isAvailable ? badge(t("Available"), "ok") : badge(t("Unavailable"), "warn")}`,
-              `<div class="row-actions">
-                <button class="link-button" type="button" data-action="edit-product" data-product-id="${escapeAttribute(product.id)}">${t("Edit")}</button>
-                <button class="link-button" type="button" data-action="toggle-product-active" data-product-id="${escapeAttribute(product.id)}" data-active="${product.isActive ? "0" : "1"}">${product.isActive ? t("Deactivate") : t("Activate")}</button>
-              </div>`,
-            ]),
-          )}
+    <div class="catalog-layout">
+      <section class="panel catalog-panel">
+        <div class="panel-head">
+          <h3>${t("Products")}</h3>
+          <button class="secondary" type="button" data-action="new-product">${t("New product")}</button>
         </div>
-        <div class="panel">
-          <div class="panel-head">
-            <h3>${t("Categories")}</h3>
-            <button class="secondary" type="button" data-action="new-category">${t("New category")}</button>
-          </div>
-          ${table(
-            ["Name", "Slug", "Sort order", "State", ""].map(t),
-            data.categories.map((category) => [
-              escapeHtml(category.name),
-              escapeHtml(category.slug),
-              String(category.sortOrder),
-              category.isActive
-                ? badge(t("Active"), "ok")
-                : badge(t("Inactive"), "bad"),
-              `<div class="row-actions">
-                <button class="link-button" type="button" data-action="edit-category" data-category-id="${escapeAttribute(category.id)}">${t("Edit")}</button>
-                <button class="link-button" type="button" data-action="toggle-category-active" data-category-id="${escapeAttribute(category.id)}" data-active="${category.isActive ? "0" : "1"}">${category.isActive ? t("Deactivate") : t("Activate")}</button>
-              </div>`,
-            ]),
-          )}
-        </div>
+        ${table(
+          ["", "Product", "Category", "Unit", "Price", "State", ""].map(t),
+          data.products.map(({ product, price, availability }) => [
+            product.imageUrl
+              ? `<img class="thumb" src="${escapeAttribute(product.imageUrl)}" alt="${escapeAttribute(product.name)}" />`
+              : `<div class="thumb" aria-hidden="true"></div>`,
+            `<strong>${escapeHtml(product.name)}</strong>${product.description ? `<br><span class="muted">${escapeHtml(product.description)}</span>` : ""}`,
+            escapeHtml(categoryName(product.categoryId)),
+            escapeHtml(t(product.unit)),
+            `${formatMoney(price.customerPrice)}<br><span class="muted">${t("Cost")} ${price.internalCost ? formatMoney(price.internalCost) : "-"}</span>`,
+            `${product.isActive ? badge(t("Active"), "ok") : badge(t("Inactive"), "bad")} ${availability.isAvailable ? badge(t("Available"), "ok") : badge(t("Unavailable"), "warn")}`,
+            `<div class="row-actions">
+              <button class="link-button" type="button" data-action="edit-product" data-product-id="${escapeAttribute(product.id)}">${t("Edit")}</button>
+              <button class="link-button" type="button" data-action="toggle-product-active" data-product-id="${escapeAttribute(product.id)}" data-active="${product.isActive ? "0" : "1"}">${product.isActive ? t("Deactivate") : t("Activate")}</button>
+            </div>`,
+          ]),
+        )}
       </section>
-      <section>
-        ${renderProductForm()}
-        ${renderCategoryForm()}
+      <section class="panel catalog-panel">
+        <div class="panel-head">
+          <h3>${t("Categories")}</h3>
+          <button class="secondary" type="button" data-action="new-category">${t("New category")}</button>
+        </div>
+        ${table(
+          ["Name", "Slug", "Sort order", "State", ""].map(t),
+          data.categories.map((category) => [
+            escapeHtml(category.name),
+            escapeHtml(category.slug),
+            String(category.sortOrder),
+            category.isActive
+              ? badge(t("Active"), "ok")
+              : badge(t("Inactive"), "bad"),
+            `<div class="row-actions">
+              <button class="link-button" type="button" data-action="edit-category" data-category-id="${escapeAttribute(category.id)}">${t("Edit")}</button>
+              <button class="link-button" type="button" data-action="toggle-category-active" data-category-id="${escapeAttribute(category.id)}" data-active="${category.isActive ? "0" : "1"}">${category.isActive ? t("Deactivate") : t("Activate")}</button>
+            </div>`,
+          ]),
+        )}
+      </section>
+    </div>
+    ${renderCatalogModal()}
+  `;
+}
+
+function renderCatalogModal(): string {
+  if (!catalogModal) {
+    return "";
+  }
+  const isProduct = catalogModal === "product";
+  const isEditing = isProduct
+    ? Boolean(editingProductId)
+    : Boolean(editingCategoryId);
+  const title = isProduct
+    ? isEditing
+      ? t("Edit product")
+      : t("Add product")
+    : isEditing
+      ? t("Edit category")
+      : t("Add category");
+  return `
+    <div class="modal-overlay">
+      <section class="modal" role="dialog" aria-modal="true" aria-label="${escapeAttribute(title)}">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">${t("Catalog")}</p>
+            <h3>${title}</h3>
+          </div>
+          <button class="secondary" type="button" data-action="close-modal">${t("Close")}</button>
+        </div>
+        ${isProduct ? renderProductForm() : renderCategoryForm()}
       </section>
     </div>
   `;
@@ -1401,12 +1715,7 @@ function renderProductForm(): string {
     : undefined;
   const isEditing = Boolean(product);
   return `
-    <section class="panel">
-      <div class="panel-head">
-        <h3>${isEditing ? t("Edit product") : t("Add product")}</h3>
-        ${isEditing ? `<button class="secondary" type="button" data-action="new-product">${t("Cancel")}</button>` : ""}
-      </div>
-      <form class="form" data-action="${isEditing ? "update-product" : "create-product"}">
+      <form class="form catalog-form" data-action="${isEditing ? "update-product" : "create-product"}">
         ${product ? `<input type="hidden" name="productId" value="${escapeAttribute(product.product.id)}" />` : ""}
         <div class="field">
           <label>${t("Name")}</label>
@@ -1430,11 +1739,11 @@ function renderProductForm(): string {
             ${productUnitOptions(product?.product.unit)}
           </select>
         </div>
-        <div class="field">
+        <div class="field full">
           <label>${t("Description")}</label>
           <textarea name="description">${escapeHtml(product?.product.description ?? "")}</textarea>
         </div>
-        <div class="field">
+        <div class="field full">
           <label>${t("Image URL")}</label>
           <input name="imageUrl" value="${escapeAttribute(product?.product.imageUrl ?? "")}" />
         </div>
@@ -1452,15 +1761,19 @@ function renderProductForm(): string {
               </div>
             `
         }
-        <label class="check-field"><input name="isActive" type="checkbox" ${(product?.product.isActive ?? true) ? "checked" : ""} /> ${t("Active")}</label>
-        <label class="check-field"><input name="isAvailable" type="checkbox" ${(product?.availability.isAvailable ?? true) ? "checked" : ""} /> ${t("Available")}</label>
-        <div class="field">
+        <div class="check-row full">
+          <label class="check-field"><input name="isActive" type="checkbox" ${(product?.product.isActive ?? true) ? "checked" : ""} /> ${t("Active")}</label>
+          <label class="check-field"><input name="isAvailable" type="checkbox" ${(product?.availability.isAvailable ?? true) ? "checked" : ""} /> ${t("Available")}</label>
+        </div>
+        <div class="field full">
           <label>${t("Availability note")}</label>
           <input name="availabilityNote" value="${escapeAttribute(product?.availability.note ?? "")}" />
         </div>
-        <button class="primary" type="submit">${isEditing ? t("Save product") : t("Create product")}</button>
+        <div class="form-actions">
+          <button class="secondary" type="button" data-action="close-modal">${t("Cancel")}</button>
+          <button class="primary" type="submit">${isEditing ? t("Save product") : t("Create product")}</button>
+        </div>
       </form>
-    </section>
   `;
 }
 
@@ -1470,12 +1783,7 @@ function renderCategoryForm(): string {
     : undefined;
   const isEditing = Boolean(category);
   return `
-    <section class="panel">
-      <div class="panel-head">
-        <h3>${isEditing ? t("Edit category") : t("Add category")}</h3>
-        ${isEditing ? `<button class="secondary" type="button" data-action="new-category">${t("Cancel")}</button>` : ""}
-      </div>
-      <form class="form" data-action="${isEditing ? "update-category" : "create-category"}">
+      <form class="form catalog-form" data-action="${isEditing ? "update-category" : "create-category"}">
         ${category ? `<input type="hidden" name="categoryId" value="${escapeAttribute(category.id)}" />` : ""}
         <div class="field">
           <label>${t("Name")}</label>
@@ -1489,10 +1797,14 @@ function renderCategoryForm(): string {
           <label>${t("Sort order")}</label>
           <input name="sortOrder" type="number" step="1" value="${escapeAttribute(String(category?.sortOrder ?? 0))}" required />
         </div>
-        <label class="check-field"><input name="isActive" type="checkbox" ${(category?.isActive ?? true) ? "checked" : ""} /> ${t("Active")}</label>
-        <button class="primary" type="submit">${isEditing ? t("Save category") : t("Create category")}</button>
+        <div class="check-row">
+          <label class="check-field"><input name="isActive" type="checkbox" ${(category?.isActive ?? true) ? "checked" : ""} /> ${t("Active")}</label>
+        </div>
+        <div class="form-actions">
+          <button class="secondary" type="button" data-action="close-modal">${t("Cancel")}</button>
+          <button class="primary" type="submit">${isEditing ? t("Save category") : t("Create category")}</button>
+        </div>
       </form>
-    </section>
   `;
 }
 
@@ -1703,9 +2015,9 @@ function renderAuditLog(): string {
         data.auditLog.map((entry) => [
           formatDate(entry.createdAt),
           shortId(entry.actorUserId),
-          escapeHtml(entry.action),
-          `${escapeHtml(entry.entityType)}<br><span class="muted">${shortId(entry.entityId)}</span>`,
-          escapeHtml(JSON.stringify(entry.metadata ?? {})),
+          escapeHtml(formatAuditAction(entry.action)),
+          `${escapeHtml(formatAuditEntity(entry.entityType))}<br><span class="muted">${shortId(entry.entityId)}</span>`,
+          formatAuditMetadata(entry.metadata),
         ]),
       )}
     </section>
@@ -1773,24 +2085,36 @@ async function handleClick(event: Event): Promise<void> {
 
   if (action === "new-product") {
     editingProductId = undefined;
+    catalogModal = "product";
     render();
     return;
   }
 
   if (action === "edit-product") {
     editingProductId = button.dataset.productId;
+    catalogModal = "product";
     render();
     return;
   }
 
   if (action === "new-category") {
     editingCategoryId = undefined;
+    catalogModal = "category";
     render();
     return;
   }
 
   if (action === "edit-category") {
     editingCategoryId = button.dataset.categoryId;
+    catalogModal = "category";
+    render();
+    return;
+  }
+
+  if (action === "close-modal") {
+    editingProductId = undefined;
+    editingCategoryId = undefined;
+    catalogModal = undefined;
     render();
     return;
   }
@@ -1961,6 +2285,7 @@ async function saveCategory(
         });
       }
       editingCategoryId = undefined;
+      catalogModal = undefined;
       await refreshData(false);
     },
   );
@@ -2011,6 +2336,7 @@ async function saveProduct(
         });
       }
       editingProductId = undefined;
+      catalogModal = undefined;
       await refreshData(false);
     },
   );
@@ -2580,6 +2906,79 @@ function statusBadge(status: string): string {
     return badge(t(status), "ok");
   }
   return badge(t(status), "neutral");
+}
+
+function formatAuditAction(action: string): string {
+  return auditActionLabels[locale][action] ?? humanizeTechnicalLabel(action);
+}
+
+function formatAuditEntity(entityType: string): string {
+  return (
+    auditEntityLabels[locale][entityType] ?? humanizeTechnicalLabel(entityType)
+  );
+}
+
+function formatAuditMetadata(
+  metadata: Record<string, unknown> | undefined,
+): string {
+  const entries = Object.entries(metadata ?? {});
+  if (entries.length === 0) {
+    return `<span class="muted">—</span>`;
+  }
+
+  return `<div class="audit-details">${entries
+    .map(
+      ([key, value]) =>
+        `<div class="audit-detail"><span class="audit-detail-label">${escapeHtml(auditFieldLabels[locale][key] ?? humanizeTechnicalLabel(key))}:</span>${formatAuditValue(key, value)}</div>`,
+    )
+    .join("")}</div>`;
+}
+
+function formatAuditValue(key: string, value: unknown): string {
+  if (value === undefined || value === null || value === "") {
+    return "—";
+  }
+  if (typeof value === "boolean") {
+    if (key === "isAvailable") {
+      return escapeHtml(value ? t("Available") : t("Unavailable"));
+    }
+    return escapeHtml(value ? t("Active") : t("Inactive"));
+  }
+  if (typeof value === "number") {
+    if (key.endsWith("Minor")) {
+      return formatMoney({ amountMinor: value });
+    }
+    return escapeHtml(String(value));
+  }
+  if (typeof value === "string") {
+    if (key === "status" || key === "paymentStatus") {
+      return escapeHtml(t(value));
+    }
+    if (key === "pickerId" || key === "courierId") {
+      return escapeHtml(staffName(value));
+    }
+    if (key.endsWith("Id")) {
+      return shortId(value);
+    }
+    return escapeHtml(value);
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => escapeHtml(humanizeTechnicalLabel(String(item))))
+      .join(", ");
+  }
+  return escapeHtml(humanizeTechnicalLabel(String(value)));
+}
+
+function humanizeTechnicalLabel(value: string): string {
+  const normalized = value
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[._-]+/g, " ")
+    .trim();
+  if (!normalized) {
+    return "—";
+  }
+  return `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}`;
 }
 
 function formatMoney(value: { readonly amountMinor: number }): string {
