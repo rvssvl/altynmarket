@@ -37,11 +37,18 @@ compose=(
   --file "${current_link}/infra/compose/staging.yml"
 )
 
-if ! "${compose[@]}" up --detach --build --remove-orphans; then
+deploy_stack() {
+  "${compose[@]}" up --detach --build --remove-orphans
+  # Caddyfile is bind-mounted from the immutable release. Compose does not
+  # recreate a container when only that file changes, so reload it explicitly.
+  "${compose[@]}" up --detach --no-deps --force-recreate caddy
+}
+
+if ! deploy_stack; then
   if [[ -n ${previous_target} ]]; then
     ln -s "${previous_target}" "${next_link}"
     mv -Tf "${next_link}" "${current_link}"
-    "${compose[@]}" up --detach --build --remove-orphans || true
+    deploy_stack || true
   fi
   exit 1
 fi

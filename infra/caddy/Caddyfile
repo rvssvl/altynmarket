@@ -3,11 +3,7 @@
 }
 
 (staging_access) {
-  # Browsers never attach HTTP Basic credentials to a cross-origin CORS
-  # preflight. Let OPTIONS reach the API, which returns its CORS policy; all
-  # requests that can read or mutate staging data still require Basic auth.
-  @requires_staging_auth not method OPTIONS
-  basic_auth @requires_staging_auth {
+  basic_auth {
     {$STAGING_ACCESS_USER} {$STAGING_ACCESS_PASSWORD_HASH}
   }
 }
@@ -25,8 +21,24 @@
 
 {$ADMIN_DOMAIN} {
   import staging_access
-  encode zstd gzip
-  reverse_proxy backoffice:4173
+
+  # Proxy the API through the same origin as the backoffice. HTTP Basic
+  # credentials are scoped to an origin, so a browser cannot reuse the admin
+  # password on a separate api-staging subdomain.
+  handle /api/* {
+    encode zstd gzip
+    reverse_proxy api:4000
+  }
+
+  handle /health {
+    encode zstd gzip
+    reverse_proxy api:4000
+  }
+
+  handle {
+    encode zstd gzip
+    reverse_proxy backoffice:4173
+  }
 }
 
 {$LANDING_DOMAIN} {

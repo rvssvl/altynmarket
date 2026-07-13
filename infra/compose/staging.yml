@@ -81,7 +81,7 @@ services:
       context: ../..
       dockerfile: infra/docker/backoffice.Dockerfile
       args:
-        PUBLIC_API_BASE_URL: https://${API_DOMAIN}
+        PUBLIC_API_BASE_URL: https://${ADMIN_DOMAIN}
     networks:
       - application
     restart: unless-stopped
