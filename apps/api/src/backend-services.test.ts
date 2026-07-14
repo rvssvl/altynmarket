@@ -128,6 +128,69 @@ describe("checkout and picking workflow", () => {
   });
 });
 
+describe("catalog deletion", () => {
+  it("deletes an unused product and its empty category, then records both actions", async () => {
+    const { api } = createTestApi();
+    const admin = await createAdmin(api, "+77010000005");
+    const category = await api.admin.createCategory(admin, {
+      name: "Seasonal",
+      slug: "seasonal",
+      sortOrder: 40,
+      isActive: true,
+    });
+    const product = await api.admin.createProduct(admin, {
+      categoryId: category.id,
+      name: "Apricots",
+      unit: "kg",
+      isActive: true,
+      customerPrice: { amountMinor: 120000, currency: "KZT" },
+      internalCost: { amountMinor: 80000, currency: "KZT" },
+      isAvailable: true,
+    });
+
+    await api.admin.deleteProduct(admin, product.product.id);
+    await api.admin.deleteCategory(admin, category.id);
+
+    expect(
+      (await api.admin.listCatalogProducts(admin)).find(
+        (candidate) => candidate.product.id === product.product.id,
+      ),
+    ).toBeUndefined();
+    expect(
+      (await api.admin.listCategories(admin)).find(
+        (candidate) => candidate.id === category.id,
+      ),
+    ).toBeUndefined();
+    expect(
+      (await api.admin.listAuditLog(admin)).map((entry) => entry.action),
+    ).toEqual(
+      expect.arrayContaining(["admin.product_delete", "admin.category_delete"]),
+    );
+  });
+
+  it("keeps catalog history intact by blocking unsafe deletions", async () => {
+    const { api } = createTestApi();
+    const admin = await createAdmin(api, "+77010000006");
+    const customer = await login(api, "+77010000007");
+
+    await api.cart.addItem(customer, tomatoes, 1);
+    await api.checkout.create(customer, {
+      city: "Almaty",
+      street: "Abay 10",
+    });
+
+    await expect(api.admin.deleteProduct(admin, tomatoes)).rejects.toThrow(
+      "A product with order history cannot be deleted",
+    );
+    await expect(
+      api.admin.deleteCategory(
+        admin,
+        brand<string, "CategoryId">("11111111-1111-4111-8111-111111111111"),
+      ),
+    ).rejects.toThrow("A category with products cannot be deleted");
+  });
+});
+
 interface TestApi {
   readonly api: BackendServices;
   readonly store: Store;
@@ -162,4 +225,16 @@ const login = async (
 ): Promise<AuthSession> => {
   await api.auth.requestOtp({ e164: phone });
   return api.auth.verifyOtp({ e164: phone }, "111111", "test device");
+};
+
+const createAdmin = async (
+  api: BackendServices,
+  phone: string,
+): Promise<AuthSession> => {
+  await api.auth.createStaffProfile({
+    phone: { e164: phone },
+    displayName: "Ops admin",
+    roles: ["super_admin", "admin"],
+  });
+  return login(api, phone);
 };

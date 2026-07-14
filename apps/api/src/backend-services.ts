@@ -124,6 +124,10 @@ export interface BackendServices {
       categoryId: CategoryId,
       input: UpdateCategoryRequest,
     ) => Promise<Category>;
+    readonly deleteCategory: (
+      session: AuthSession,
+      categoryId: CategoryId,
+    ) => Promise<Category>;
     readonly createProduct: (
       session: AuthSession,
       input: CreateProductRequest,
@@ -133,6 +137,10 @@ export interface BackendServices {
       productId: ProductId,
       input: UpdateProductRequest,
     ) => Promise<ProductForSale>;
+    readonly deleteProduct: (
+      session: AuthSession,
+      productId: ProductId,
+    ) => Promise<void>;
     readonly updateProductAvailability: (
       session: AuthSession,
       productId: ProductId,
@@ -702,6 +710,29 @@ export const createBackendServices = (
         });
         return category;
       },
+      deleteCategory: async (session, categoryId) => {
+        await auth.requireRole(session, ["admin"]);
+        const result = await store.catalog.deleteCategory(categoryId);
+
+        if (result.kind === "not_found") {
+          throw new ApiFailure("Category not found.", 404);
+        }
+        if (result.kind === "has_products") {
+          throw new ApiFailure(
+            "A category with products cannot be deleted. Move or delete its products first.",
+            409,
+          );
+        }
+
+        await store.audit.record({
+          actorUserId: session.customer.id,
+          action: "admin.category_delete",
+          entityType: "category",
+          entityId: result.category.id,
+          metadata: { name: result.category.name, slug: result.category.slug },
+        });
+        return result.category;
+      },
       createProduct: async (session, input) => {
         await auth.requireRole(session, ["admin"]);
         const product = await store.catalog.createProduct(input);
@@ -728,6 +759,28 @@ export const createBackendServices = (
           metadata: { ...input },
         });
         return product;
+      },
+      deleteProduct: async (session, productId) => {
+        await auth.requireRole(session, ["admin"]);
+        const result = await store.catalog.deleteProduct(productId);
+
+        if (result.kind === "not_found") {
+          throw new ApiFailure("Product not found.", 404);
+        }
+        if (result.kind === "has_order_history") {
+          throw new ApiFailure(
+            "A product with order history cannot be deleted. Deactivate it instead.",
+            409,
+          );
+        }
+
+        await store.audit.record({
+          actorUserId: session.customer.id,
+          action: "admin.product_delete",
+          entityType: "product",
+          entityId: result.product.id,
+          metadata: { name: result.product.name },
+        });
       },
       updateProductAvailability: async (session, productId, input) => {
         await auth.requireRole(session, ["admin"]);

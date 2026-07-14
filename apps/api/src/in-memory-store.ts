@@ -357,6 +357,22 @@ export const createInMemoryStore = (): Store => {
         categories.set(categoryId, updated);
         return updated;
       },
+      deleteCategory: async (categoryId) => {
+        const category = categories.get(categoryId);
+        if (!category) {
+          return { kind: "not_found" };
+        }
+        if (
+          [...products.values()].some(
+            (product) => product.categoryId === categoryId,
+          )
+        ) {
+          return { kind: "has_products" };
+        }
+
+        categories.delete(categoryId);
+        return { kind: "deleted", category };
+      },
       createProduct: async (input) => {
         const productRecord: Product = {
           id: brand(randomUUID()),
@@ -410,6 +426,28 @@ export const createInMemoryStore = (): Store => {
           throw new Error("Product not found.");
         }
         return productForSale;
+      },
+      deleteProduct: async (productId) => {
+        const product = products.get(productId);
+        if (!product) {
+          return { kind: "not_found" };
+        }
+        if (
+          [...orders.values()].some((order) =>
+            order.items.some((item) => item.productId === productId),
+          )
+        ) {
+          return { kind: "has_order_history" };
+        }
+
+        products.delete(productId);
+        prices.delete(productId);
+        priceHistory.delete(productId);
+        availability.delete(productId);
+        for (const cart of cartsByUser.values()) {
+          cart.items.delete(productId);
+        }
+        return { kind: "deleted", product };
       },
       updateProductAvailability: async (productId, input) => {
         const productRecord = products.get(productId);

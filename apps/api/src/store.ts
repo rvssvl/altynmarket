@@ -198,6 +198,30 @@ export interface ProductPriceInput {
   readonly effectiveFrom?: string;
 }
 
+export type DeleteCategoryResult =
+  | {
+      readonly kind: "deleted";
+      readonly category: Category;
+    }
+  | {
+      readonly kind: "not_found";
+    }
+  | {
+      readonly kind: "has_products";
+    };
+
+export type DeleteProductResult =
+  | {
+      readonly kind: "deleted";
+      readonly product: Product;
+    }
+  | {
+      readonly kind: "not_found";
+    }
+  | {
+      readonly kind: "has_order_history";
+    };
+
 export interface Store {
   readonly auth: {
     readonly createOtpChallenge: (input: OtpChallengeRecord) => Promise<void>;
@@ -261,11 +285,17 @@ export interface Store {
       categoryId: CategoryId,
       input: CategoryUpdateInput,
     ) => Promise<Category>;
+    readonly deleteCategory: (
+      categoryId: CategoryId,
+    ) => Promise<DeleteCategoryResult>;
     readonly createProduct: (input: ProductInput) => Promise<ProductForSale>;
     readonly updateProduct: (
       productId: ProductId,
       input: ProductUpdateInput,
     ) => Promise<ProductForSale>;
+    readonly deleteProduct: (
+      productId: ProductId,
+    ) => Promise<DeleteProductResult>;
     readonly updateProductAvailability: (
       productId: ProductId,
       input: ProductAvailabilityInput,

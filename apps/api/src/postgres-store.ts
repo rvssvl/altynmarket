@@ -417,6 +417,42 @@ export const createPostgresStore = (database: DatabaseClient): Store => ({
       );
       return mapRequired(rows[0], mapCategory, "Category not found.");
     },
+    deleteCategory: (categoryId) =>
+      database.transaction(async (client) => {
+        const categoryRows = await client.query<CategoryRow>(
+          `
+            select id, name, slug, sort_order, is_active
+            from categories
+            where id = $1
+            for update
+          `,
+          [categoryId],
+        );
+        const categoryRow = categoryRows[0];
+
+        if (!categoryRow) {
+          return { kind: "not_found" } as const;
+        }
+
+        const productReferenceRows = await client.query<ExistsRow>(
+          `
+            select exists(
+              select 1
+              from products
+              where category_id = $1
+            ) as exists
+          `,
+          [categoryId],
+        );
+        if (productReferenceRows[0]?.exists) {
+          return { kind: "has_products" } as const;
+        }
+
+        await client.query("delete from categories where id = $1", [
+          categoryId,
+        ]);
+        return { kind: "deleted", category: mapCategory(categoryRow) } as const;
+      }),
     createProduct: async (input) =>
       database.transaction(async (client) => {
         const productId = randomUUID();
@@ -512,6 +548,51 @@ export const createPostgresStore = (database: DatabaseClient): Store => ({
       }
       return productForSale;
     },
+    deleteProduct: (productId) =>
+      database.transaction(async (client) => {
+        const productRows = await client.query<ProductRow>(
+          `
+            select id, category_id, name, description, unit, image_url, is_active
+            from products
+            where id = $1
+            for update
+          `,
+          [productId],
+        );
+        const productRow = productRows[0];
+
+        if (!productRow) {
+          return { kind: "not_found" } as const;
+        }
+
+        const orderReferenceRows = await client.query<ExistsRow>(
+          `
+            select exists(
+              select 1
+              from order_items
+              where product_id = $1
+            ) as exists
+          `,
+          [productId],
+        );
+        if (orderReferenceRows[0]?.exists) {
+          return { kind: "has_order_history" } as const;
+        }
+
+        await client.query("delete from cart_items where product_id = $1", [
+          productId,
+        ]);
+        await client.query(
+          "delete from product_availability where product_id = $1",
+          [productId],
+        );
+        await client.query("delete from product_prices where product_id = $1", [
+          productId,
+        ]);
+        await client.query("delete from products where id = $1", [productId]);
+
+        return { kind: "deleted", product: mapProduct(productRow) } as const;
+      }),
     updateProductAvailability: async (productId, input) => {
       const rows = await database.query<ProductAvailabilityRow>(
         `
@@ -1839,6 +1920,10 @@ interface ProductAvailabilityRow extends Record<string, unknown> {
   readonly is_available: boolean;
   readonly note: string | null;
   readonly updated_at: string | Date;
+}
+
+interface ExistsRow extends Record<string, unknown> {
+  readonly exists: boolean;
 }
 
 interface CartItemRow extends ProductForSaleRow {

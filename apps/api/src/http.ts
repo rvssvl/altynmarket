@@ -449,41 +449,41 @@ const handleApiRequest = async (
     const categoryMatch = url.pathname.match(
       /^\/api\/admin\/catalog\/categories\/(?<categoryId>[^/]+)$/,
     );
-    if (
-      (request.method === "PATCH" || request.method === "DELETE") &&
-      categoryMatch?.groups?.categoryId
-    ) {
+    if (request.method === "DELETE" && categoryMatch?.groups?.categoryId) {
       const session = await requireSession(api, request, url);
-      const body =
-        request.method === "DELETE"
-          ? {}
-          : await readJsonBody<{
-              readonly name?: string;
-              readonly slug?: string;
-              readonly sortOrder?: number;
-              readonly isActive?: boolean;
-            }>(request);
+      const category = await api.admin.deleteCategory(
+        session,
+        brand(decodeURIComponent(categoryMatch.groups.categoryId)),
+      );
+      sendJson(response, 200, category);
+      return;
+    }
+
+    if (request.method === "PATCH" && categoryMatch?.groups?.categoryId) {
+      const session = await requireSession(api, request, url);
+      const body = await readJsonBody<{
+        readonly name?: string;
+        readonly slug?: string;
+        readonly sortOrder?: number;
+        readonly isActive?: boolean;
+      }>(request);
       const category = await api.admin.updateCategory(
         session,
         brand(decodeURIComponent(categoryMatch.groups.categoryId)),
-        request.method === "DELETE"
-          ? { isActive: false }
-          : {
-              ...(body.name === undefined
-                ? {}
-                : { name: parseNonEmptyString(body.name, "name") }),
-              ...(body.slug === undefined
-                ? {}
-                : { slug: parseSlug(body.slug) }),
-              ...(body.sortOrder === undefined
-                ? {}
-                : { sortOrder: parseInteger(body.sortOrder, "sortOrder") }),
-              ...(body.isActive === undefined
-                ? {}
-                : {
-                    isActive: parseRequiredBoolean(body.isActive, "isActive"),
-                  }),
-            },
+        {
+          ...(body.name === undefined
+            ? {}
+            : { name: parseNonEmptyString(body.name, "name") }),
+          ...(body.slug === undefined ? {} : { slug: parseSlug(body.slug) }),
+          ...(body.sortOrder === undefined
+            ? {}
+            : { sortOrder: parseInteger(body.sortOrder, "sortOrder") }),
+          ...(body.isActive === undefined
+            ? {}
+            : {
+                isActive: parseRequiredBoolean(body.isActive, "isActive"),
+              }),
+        },
       );
       sendJson(response, 200, category);
       return;
@@ -574,60 +574,62 @@ const handleApiRequest = async (
     const productMatch = url.pathname.match(
       /^\/api\/admin\/catalog\/products\/(?<productId>[^/]+)$/,
     );
-    if (
-      (request.method === "PATCH" || request.method === "DELETE") &&
-      productMatch?.groups?.productId
-    ) {
+    if (request.method === "DELETE" && productMatch?.groups?.productId) {
       const session = await requireSession(api, request, url);
-      const body =
-        request.method === "DELETE"
-          ? {}
-          : await readJsonBody<{
-              readonly categoryId?: string;
-              readonly name?: string;
-              readonly description?: string;
-              readonly unit?: string;
-              readonly imageUrl?: string;
-              readonly isActive?: boolean;
-            }>(request);
+      await api.admin.deleteProduct(
+        session,
+        brand(decodeURIComponent(productMatch.groups.productId)),
+      );
+      sendJson(response, 200, { deleted: true });
+      return;
+    }
+
+    if (request.method === "PATCH" && productMatch?.groups?.productId) {
+      const session = await requireSession(api, request, url);
+      const body = await readJsonBody<{
+        readonly categoryId?: string;
+        readonly name?: string;
+        readonly description?: string;
+        readonly unit?: string;
+        readonly imageUrl?: string;
+        readonly isActive?: boolean;
+      }>(request);
       const product = await api.admin.updateProduct(
         session,
         brand(decodeURIComponent(productMatch.groups.productId)),
-        request.method === "DELETE"
-          ? { isActive: false }
-          : {
-              ...(body.categoryId === undefined
-                ? {}
-                : {
-                    categoryId: brand(
-                      parseNonEmptyString(body.categoryId, "categoryId"),
-                    ),
-                  }),
-              ...(body.name === undefined
-                ? {}
-                : { name: parseNonEmptyString(body.name, "name") }),
-              ...(body.description === undefined
-                ? {}
-                : {
-                    description: parseNonEmptyString(
-                      body.description,
-                      "description",
-                    ),
-                  }),
-              ...(body.unit === undefined
-                ? {}
-                : { unit: parseProductUnit(body.unit) }),
-              ...(body.imageUrl === undefined
-                ? {}
-                : {
-                    imageUrl: parseNonEmptyString(body.imageUrl, "imageUrl"),
-                  }),
-              ...(body.isActive === undefined
-                ? {}
-                : {
-                    isActive: parseRequiredBoolean(body.isActive, "isActive"),
-                  }),
-            },
+        {
+          ...(body.categoryId === undefined
+            ? {}
+            : {
+                categoryId: brand(
+                  parseNonEmptyString(body.categoryId, "categoryId"),
+                ),
+              }),
+          ...(body.name === undefined
+            ? {}
+            : { name: parseNonEmptyString(body.name, "name") }),
+          ...(body.description === undefined
+            ? {}
+            : {
+                description: parseNonEmptyString(
+                  body.description,
+                  "description",
+                ),
+              }),
+          ...(body.unit === undefined
+            ? {}
+            : { unit: parseProductUnit(body.unit) }),
+          ...(body.imageUrl === undefined
+            ? {}
+            : {
+                imageUrl: parseNonEmptyString(body.imageUrl, "imageUrl"),
+              }),
+          ...(body.isActive === undefined
+            ? {}
+            : {
+                isActive: parseRequiredBoolean(body.isActive, "isActive"),
+              }),
+        },
       );
       sendJson(response, 200, product);
       return;

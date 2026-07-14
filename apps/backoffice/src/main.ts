@@ -58,6 +58,12 @@ const localeStorageKey = "altyn-market-admin-locale";
 
 type AppLocale = "ru" | "kk" | "en";
 
+interface CatalogDeleteTarget {
+  readonly kind: "product" | "category";
+  readonly id: string;
+  readonly name: string;
+}
+
 let activeModule: AdminModule = "orders";
 let backendState: BackendState = "checking";
 let session: AuthSession | undefined = readStoredSession();
@@ -71,6 +77,7 @@ let editingCategoryId: string | undefined;
 let editingProductId: string | undefined;
 let selectedPriceProductId: string | undefined;
 let catalogModal: "product" | "category" | undefined;
+let catalogDeleteTarget: CatalogDeleteTarget | undefined;
 let locale: AppLocale = readStoredLocale();
 let navOpen = false;
 
@@ -370,6 +377,8 @@ style.textContent = `
     padding: 0;
   }
 
+  .link-button.danger-link { color: #a84c37; }
+
   .notice,
   .error {
     border-radius: 12px;
@@ -536,6 +545,12 @@ style.textContent = `
   .catalog-panel th:nth-child(7),
   .catalog-panel td:nth-child(7) { width: 17%; }
 
+  .catalog-panel .row-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-start;
+  }
+
   .modal-overlay {
     align-items: center;
     background: #16382c73;
@@ -575,6 +590,22 @@ style.textContent = `
     letter-spacing: -.045em;
     margin: 0;
   }
+
+  .confirmation-content {
+    display: grid;
+    gap: 14px;
+    padding: 20px;
+  }
+
+  .confirmation-content p {
+    color: #52675d;
+    line-height: 1.55;
+    margin: 0;
+  }
+
+  .confirmation-content strong { color: #16382c; }
+
+  .confirmation-content .error { margin: 0; }
 
   .catalog-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -955,6 +986,18 @@ const translations: Record<AppLocale, Readonly<Record<string, string>>> = {
     Edit: "Изменить",
     Deactivate: "Отключить",
     Activate: "Включить",
+    Delete: "Удалить",
+    "Delete product": "Удалить товар",
+    "Delete category": "Удалить категорию",
+    "Delete this product permanently?": "Удалить товар безвозвратно?",
+    "Delete this category permanently?": "Удалить категорию безвозвратно?",
+    "This action cannot be undone.": "Это действие нельзя отменить.",
+    "Product deleted.": "Товар удалён.",
+    "Category deleted.": "Категория удалена.",
+    "A product with order history cannot be deleted. Deactivate it instead.":
+      "Товар из истории заказов нельзя удалить. Отключите его вместо этого.",
+    "A category with products cannot be deleted. Move or delete its products first.":
+      "Категорию с товарами нельзя удалить. Сначала перенесите или удалите товары.",
     Categories: "Категории",
     "New category": "Новая категория",
     "Add product": "Добавить товар",
@@ -1110,6 +1153,18 @@ const translations: Record<AppLocale, Readonly<Record<string, string>>> = {
     Edit: "Өзгерту",
     Deactivate: "Өшіру",
     Activate: "Қосу",
+    Delete: "Жою",
+    "Delete product": "Тауарды жою",
+    "Delete category": "Санатты жою",
+    "Delete this product permanently?": "Тауарды біржола жою керек пе?",
+    "Delete this category permanently?": "Санатты біржола жою керек пе?",
+    "This action cannot be undone.": "Бұл әрекетті қайтару мүмкін емес.",
+    "Product deleted.": "Тауар жойылды.",
+    "Category deleted.": "Санат жойылды.",
+    "A product with order history cannot be deleted. Deactivate it instead.":
+      "Тапсырыс тарихы бар тауарды жоюға болмайды. Оның орнына өшіріңіз.",
+    "A category with products cannot be deleted. Move or delete its products first.":
+      "Тауарлары бар санатты жоюға болмайды. Алдымен тауарларды ауыстырыңыз немесе жойыңыз.",
     Categories: "Санаттар",
     "New category": "Жаңа санат",
     "Add product": "Тауар қосу",
@@ -1184,8 +1239,10 @@ const auditActionLabels: Record<AppLocale, Readonly<Record<string, string>>> = {
   en: {
     "admin.category_create": "Category created",
     "admin.category_update": "Category updated",
+    "admin.category_delete": "Category deleted",
     "admin.product_create": "Product created",
     "admin.product_update": "Product updated",
+    "admin.product_delete": "Product deleted",
     "admin.product_availability_update": "Availability updated",
     "admin.product_price_update": "Product price updated",
     "admin.assign_picker": "Picker assigned",
@@ -1204,8 +1261,10 @@ const auditActionLabels: Record<AppLocale, Readonly<Record<string, string>>> = {
   ru: {
     "admin.category_create": "Создана категория",
     "admin.category_update": "Изменена категория",
+    "admin.category_delete": "Удалена категория",
     "admin.product_create": "Создан товар",
     "admin.product_update": "Изменён товар",
+    "admin.product_delete": "Удалён товар",
     "admin.product_availability_update": "Обновлено наличие",
     "admin.product_price_update": "Обновлена цена товара",
     "admin.assign_picker": "Назначен сборщик",
@@ -1224,8 +1283,10 @@ const auditActionLabels: Record<AppLocale, Readonly<Record<string, string>>> = {
   kk: {
     "admin.category_create": "Санат құрылды",
     "admin.category_update": "Санат өзгертілді",
+    "admin.category_delete": "Санат жойылды",
     "admin.product_create": "Тауар құрылды",
     "admin.product_update": "Тауар өзгертілді",
+    "admin.product_delete": "Тауар жойылды",
     "admin.product_availability_update": "Қолжетімділік жаңартылды",
     "admin.product_price_update": "Тауар бағасы жаңартылды",
     "admin.assign_picker": "Жинаушы тағайындалды",
@@ -1646,6 +1707,7 @@ function renderCatalog(): string {
             `<div class="row-actions">
               <button class="link-button" type="button" data-action="edit-product" data-product-id="${escapeAttribute(product.id)}">${t("Edit")}</button>
               <button class="link-button" type="button" data-action="toggle-product-active" data-product-id="${escapeAttribute(product.id)}" data-active="${product.isActive ? "0" : "1"}">${product.isActive ? t("Deactivate") : t("Activate")}</button>
+              <button class="link-button danger-link" type="button" data-action="request-delete-product" data-product-id="${escapeAttribute(product.id)}" data-product-name="${escapeAttribute(product.name)}">${t("Delete")}</button>
             </div>`,
           ]),
         )}
@@ -1667,12 +1729,14 @@ function renderCatalog(): string {
             `<div class="row-actions">
               <button class="link-button" type="button" data-action="edit-category" data-category-id="${escapeAttribute(category.id)}">${t("Edit")}</button>
               <button class="link-button" type="button" data-action="toggle-category-active" data-category-id="${escapeAttribute(category.id)}" data-active="${category.isActive ? "0" : "1"}">${category.isActive ? t("Deactivate") : t("Activate")}</button>
+              <button class="link-button danger-link" type="button" data-action="request-delete-category" data-category-id="${escapeAttribute(category.id)}" data-category-name="${escapeAttribute(category.name)}">${t("Delete")}</button>
             </div>`,
           ]),
         )}
       </section>
     </div>
     ${renderCatalogModal()}
+    ${renderCatalogDeleteModal()}
   `;
 }
 
@@ -1702,6 +1766,42 @@ function renderCatalogModal(): string {
           <button class="secondary" type="button" data-action="close-modal">${t("Close")}</button>
         </div>
         ${isProduct ? renderProductForm() : renderCategoryForm()}
+      </section>
+    </div>
+  `;
+}
+
+function renderCatalogDeleteModal(): string {
+  if (!catalogDeleteTarget) {
+    return "";
+  }
+  const isProduct = catalogDeleteTarget.kind === "product";
+  const title = t(isProduct ? "Delete product" : "Delete category");
+  const question = t(
+    isProduct
+      ? "Delete this product permanently?"
+      : "Delete this category permanently?",
+  );
+
+  return `
+    <div class="modal-overlay">
+      <section class="modal" role="dialog" aria-modal="true" aria-label="${escapeAttribute(title)}">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">${t("Catalog")}</p>
+            <h3>${title}</h3>
+          </div>
+          <button class="secondary" type="button" data-action="close-delete-modal">${t("Close")}</button>
+        </div>
+        <div class="confirmation-content">
+          <p>${question} <strong>${escapeHtml(catalogDeleteTarget.name)}</strong></p>
+          <p>${t("This action cannot be undone.")}</p>
+          ${errorMessage ? `<div class="error">${escapeHtml(errorMessage)}</div>` : ""}
+          <div class="form-actions">
+            <button class="secondary" type="button" data-action="close-delete-modal">${t("Cancel")}</button>
+            <button class="danger" type="button" data-action="confirm-delete-catalog-item">${t("Delete")}</button>
+          </div>
+        </div>
       </section>
     </div>
   `;
@@ -2097,6 +2197,22 @@ async function handleClick(event: Event): Promise<void> {
     return;
   }
 
+  if (
+    action === "request-delete-product" &&
+    button.dataset.productId &&
+    button.dataset.productName
+  ) {
+    catalogDeleteTarget = {
+      kind: "product",
+      id: button.dataset.productId,
+      name: button.dataset.productName,
+    };
+    errorMessage = undefined;
+    successMessage = undefined;
+    render();
+    return;
+  }
+
   if (action === "new-category") {
     editingCategoryId = undefined;
     catalogModal = "category";
@@ -2111,11 +2227,50 @@ async function handleClick(event: Event): Promise<void> {
     return;
   }
 
+  if (
+    action === "request-delete-category" &&
+    button.dataset.categoryId &&
+    button.dataset.categoryName
+  ) {
+    catalogDeleteTarget = {
+      kind: "category",
+      id: button.dataset.categoryId,
+      name: button.dataset.categoryName,
+    };
+    errorMessage = undefined;
+    successMessage = undefined;
+    render();
+    return;
+  }
+
   if (action === "close-modal") {
     editingProductId = undefined;
     editingCategoryId = undefined;
     catalogModal = undefined;
     render();
+    return;
+  }
+
+  if (action === "close-delete-modal") {
+    catalogDeleteTarget = undefined;
+    errorMessage = undefined;
+    render();
+    return;
+  }
+
+  if (action === "confirm-delete-catalog-item" && catalogDeleteTarget) {
+    const target = catalogDeleteTarget;
+    await runAction(
+      t(target.kind === "product" ? "Product deleted." : "Category deleted."),
+      async () => {
+        await apiSend(
+          `/api/admin/catalog/${target.kind === "product" ? "products" : "categories"}/${target.id}`,
+          { method: "DELETE" },
+        );
+        catalogDeleteTarget = undefined;
+        await refreshData(false);
+      },
+    );
     return;
   }
 
@@ -2616,7 +2771,7 @@ function readErrorMessage(payload: unknown): string {
     "error" in payload &&
     typeof payload.error === "string"
   ) {
-    return payload.error;
+    return t(payload.error);
   }
 
   return "Request failed.";
