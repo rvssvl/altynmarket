@@ -50,6 +50,7 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET in /etc/altyn-market/staging.env}
       WEB_ORIGIN: https://${ADMIN_DOMAIN}
       PUBLIC_API_BASE_URL: https://${API_DOMAIN}
+      PUBLIC_MEDIA_BASE_URL: https://${ADMIN_DOMAIN}
       PUBLIC_REALTIME_URL: https://${API_DOMAIN}/realtime
       BOOTSTRAP_ADMIN_PHONE: ${BOOTSTRAP_ADMIN_PHONE:?Set BOOTSTRAP_ADMIN_PHONE in /etc/altyn-market/staging.env}
       AUTH_EXPOSE_DEV_CODE: "1"
@@ -58,6 +59,9 @@ services:
       PUSH_PROVIDER: console
       PAYMENT_PROVIDER: mock
       DELIVERY_FLAT_FEE_KZT: ${DELIVERY_FLAT_FEE_KZT:-1500}
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - product_images:/app/uploads
     networks:
       - application
       - database
@@ -159,3 +163,4 @@ volumes:
   caddy_data:
   caddy_config:
   postgres_data:
+  product_images:

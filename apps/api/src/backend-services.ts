@@ -151,6 +151,10 @@ export interface BackendServices {
       productId: ProductId,
       input: UpdateProductPriceRequest,
     ) => Promise<ProductPrice>;
+    readonly recordProductImageUpload: (
+      session: AuthSession,
+      input: ProductImageUploadRequest,
+    ) => Promise<void>;
     readonly listProductPriceHistory: (
       session: AuthSession,
       productId: ProductId,
@@ -276,6 +280,12 @@ export interface UpdateProductPriceRequest {
   readonly customerPrice: Money;
   readonly internalCost?: Money;
   readonly effectiveFrom?: string;
+}
+
+export interface ProductImageUploadRequest {
+  readonly fileName: string;
+  readonly contentType: "image/jpeg" | "image/png" | "image/webp";
+  readonly sizeBytes: number;
 }
 
 export interface RefundPaymentRequest {
@@ -811,6 +821,19 @@ export const createBackendServices = (
           },
         });
         return price;
+      },
+      recordProductImageUpload: async (session, input) => {
+        await auth.requireRole(session, ["admin"]);
+        await store.audit.record({
+          actorUserId: session.customer.id,
+          action: "admin.product_image_upload",
+          entityType: "product_image",
+          entityId: input.fileName,
+          metadata: {
+            contentType: input.contentType,
+            sizeBytes: input.sizeBytes,
+          },
+        });
       },
       listProductPriceHistory: async (session, productId) => {
         await auth.requireRole(session, ["admin"]);

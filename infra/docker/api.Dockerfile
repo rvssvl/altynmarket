@@ -23,6 +23,8 @@ COPY --from=build /app/apps/api ./apps/api
 COPY --from=build /app/packages/domain ./packages/domain
 COPY --from=build /app/packages/database ./packages/database
 
+RUN mkdir /app/uploads && chown node:node /app/uploads
+
 USER node
 EXPOSE 4000
 

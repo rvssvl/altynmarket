@@ -14,6 +14,12 @@ import {
 } from "node:http";
 import { AuthFailure } from "./auth-service.js";
 import { ApiFailure, type BackendServices } from "./backend-services.js";
+import {
+  createProductImageStorage,
+  maxProductImageUploadBodyBytes,
+  ProductImageValidationError,
+  type ProductImageStorage,
+} from "./product-image-storage.js";
 import type { RealtimeBus } from "./realtime.js";
 
 export interface HttpApiServer {
@@ -24,84 +30,93 @@ export interface HttpApiServer {
 export const createHttpApiServer = (
   api: BackendServices,
   realtime: RealtimeBus,
-): HttpApiServer => ({
-  api,
-  start: async (port) => {
-    const server = createServer((request, response) => {
-      const url = new URL(
-        request.url ?? "/",
-        `http://${request.headers.host ?? "localhost"}`,
-      );
+): HttpApiServer => {
+  const publicMediaBaseUrl =
+    process.env.PUBLIC_MEDIA_BASE_URL ?? process.env.PUBLIC_API_BASE_URL;
+  const productImageStorage = createProductImageStorage({
+    ...(process.env.UPLOAD_DIR ? { directory: process.env.UPLOAD_DIR } : {}),
+    ...(publicMediaBaseUrl ? { publicBaseUrl: publicMediaBaseUrl } : {}),
+  });
 
-      response.setHeader(
-        "Access-Control-Allow-Origin",
-        resolveCorsOrigin(request.headers.origin, process.env.WEB_ORIGIN),
-      );
-      response.setHeader("Vary", "Origin");
-      response.setHeader(
-        "Access-Control-Allow-Methods",
-        "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-      );
-      response.setHeader(
-        "Access-Control-Allow-Headers",
-        "Content-Type,Authorization",
-      );
+  return {
+    api,
+    start: async (port) => {
+      const server = createServer((request, response) => {
+        const url = new URL(
+          request.url ?? "/",
+          `http://${request.headers.host ?? "localhost"}`,
+        );
 
-      if (request.method === "OPTIONS") {
-        response.writeHead(204);
-        response.end();
+        response.setHeader(
+          "Access-Control-Allow-Origin",
+          resolveCorsOrigin(request.headers.origin, process.env.WEB_ORIGIN),
+        );
+        response.setHeader("Vary", "Origin");
+        response.setHeader(
+          "Access-Control-Allow-Methods",
+          "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+        );
+        response.setHeader(
+          "Access-Control-Allow-Headers",
+          "Content-Type,Authorization",
+        );
+
+        if (request.method === "OPTIONS") {
+          response.writeHead(204);
+          response.end();
+          return;
+        }
+
+        if (url.pathname === "/health") {
+          sendJson(response, 200, {
+            ok: true,
+            service: "altyn-market-api",
+            environment: process.env.NODE_ENV ?? "development",
+          });
+          return;
+        }
+
+        if (url.pathname === "/api/stage-info") {
+          sendJson(response, 200, {
+            name: "Altyn Market API",
+            status: "stage",
+            modules: [
+              "auth",
+              "catalog",
+              "cart",
+              "orders",
+              "picking",
+              "delivery",
+              "payments",
+              "notifications",
+              "admin",
+              "metrics",
+              "realtime",
+            ],
+          });
+          return;
+        }
+
+        if (
+          request.method === "GET" &&
+          (url.pathname === "/realtime" || url.pathname === "/api/realtime")
+        ) {
+          void handleRealtime(api, realtime, request, response, url);
+          return;
+        }
+
+        void handleApiRequest(api, request, response, url, productImageStorage);
         return;
-      }
+      });
 
-      if (url.pathname === "/health") {
-        sendJson(response, 200, {
-          ok: true,
-          service: "altyn-market-api",
-          environment: process.env.NODE_ENV ?? "development",
-        });
-        return;
-      }
+      await new Promise<void>((resolve) => {
+        server.listen(port, "0.0.0.0", resolve);
+      });
 
-      if (url.pathname === "/api/stage-info") {
-        sendJson(response, 200, {
-          name: "Altyn Market API",
-          status: "stage",
-          modules: [
-            "auth",
-            "catalog",
-            "cart",
-            "orders",
-            "picking",
-            "delivery",
-            "payments",
-            "notifications",
-            "admin",
-            "metrics",
-            "realtime",
-          ],
-        });
-        return;
-      }
-
-      if (
-        request.method === "GET" &&
-        (url.pathname === "/realtime" || url.pathname === "/api/realtime")
-      ) {
-        void handleRealtime(api, realtime, request, response, url);
-        return;
-      }
-
-      void handleApiRequest(api, request, response, url);
-      return;
-    });
-
-    await new Promise<void>((resolve) => {
-      server.listen(port, "0.0.0.0", resolve);
-    });
-
-    console.log(`Altyn Market API listening on :${port}`);
-  },
-});
+      console.log(`Altyn Market API listening on :${port}`);
+    },
+  };
+};
 
 const resolveCorsOrigin = (
   requestOrigin: string | undefined,
@@ -164,8 +179,25 @@ const handleApiRequest = async (
   request: IncomingMessage,
   response: ServerResponse,
   url: URL,
+  productImageStorage: ProductImageStorage,
 ): Promise<void> => {
   try {
+    const productImageMatch = url.pathname.match(
+      /^\/uploads\/products\/(?<fileName>[^/]+)$/,
+    );
+    if (request.method === "GET" && productImageMatch?.groups?.fileName) {
+      const image = await productImageStorage.read(
+        decodeURIComponent(productImageMatch.groups.fileName),
+      );
+      if (!image) {
+        sendJson(response, 404, { error: "Image not found." });
+        return;
+      }
+
+      sendImage(response, image.content, image.contentType);
+      return;
+    }
+
     if (request.method === "POST" && url.pathname === "/api/auth/request-otp") {
       const body = await readJsonBody<{ readonly phone?: string }>(request);
       const phone = parsePhone(body.phone);
@@ -422,6 +454,23 @@ const handleApiRequest = async (
         api.admin.listCatalogProducts(session),
       ]);
       sendJson(response, 200, { categories, products });
+      return;
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/admin/uploads/product-images"
+    ) {
+      const session = await requireSession(api, request, url);
+      const body = await readJsonBody<{ readonly dataBase64?: string }>(
+        request,
+        maxProductImageUploadBodyBytes,
+      );
+      const image = await productImageStorage.saveBase64(
+        parseNonEmptyString(body.dataBase64, "dataBase64"),
+      );
+      await api.admin.recordProductImageUpload(session, image);
+      sendJson(response, 201, { url: image.url });
       return;
     }
 
@@ -826,8 +875,18 @@ const handleApiRequest = async (
 
     await handleCompatibilityMockRoutes(api, request, response, url);
   } catch (error) {
-    if (error instanceof BadRequest || error instanceof ApiFailure) {
-      sendJson(response, error.status ?? 400, { error: error.message });
+    if (
+      error instanceof BadRequest ||
+      error instanceof ApiFailure ||
+      error instanceof ProductImageValidationError
+    ) {
+      sendJson(
+        response,
+        error instanceof ProductImageValidationError
+          ? 400
+          : (error.status ?? 400),
+        { error: error.message },
+      );
       return;
     }
 
@@ -908,14 +967,17 @@ class BadRequest extends Error {
   readonly status = 400;
 }
 
-const readJsonBody = async <T>(request: IncomingMessage): Promise<T> =>
+const readJsonBody = async <T>(
+  request: IncomingMessage,
+  maxBytes = 65_536,
+): Promise<T> =>
   new Promise((resolve, reject) => {
     let raw = "";
 
     request.setEncoding("utf8");
     request.on("data", (chunk) => {
       raw += chunk;
-      if (raw.length > 65_536) {
+      if (raw.length > maxBytes) {
         reject(new BadRequest("Request body is too large."));
       }
     });
@@ -1236,4 +1298,18 @@ const sendJson = (
 ): void => {
   response.writeHead(status, { "Content-Type": "application/json" });
   response.end(JSON.stringify(body));
+};
+
+const sendImage = (
+  response: ServerResponse,
+  content: Buffer,
+  contentType: "image/jpeg" | "image/png" | "image/webp",
+): void => {
+  response.writeHead(200, {
+    "Content-Type": contentType,
+    "Cache-Control": "public, max-age=31536000, immutable",
+    "Content-Length": String(content.length),
+    "X-Content-Type-Options": "nosniff",
+  });
+  response.end(content);
 };

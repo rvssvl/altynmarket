@@ -57,6 +57,7 @@ const sessionStorageKey = "altyn-market-admin-session";
 const localeStorageKey = "altyn-market-admin-locale";
 
 type AppLocale = "ru" | "kk" | "en";
+type SearchScope = "catalog-products" | "catalog-categories" | "pricing";
 
 interface CatalogDeleteTarget {
   readonly kind: "product" | "category";
@@ -78,6 +79,9 @@ let editingProductId: string | undefined;
 let selectedPriceProductId: string | undefined;
 let catalogModal: "product" | "category" | undefined;
 let catalogDeleteTarget: CatalogDeleteTarget | undefined;
+let catalogProductSearch = "";
+let catalogCategorySearch = "";
+let pricingSearch = "";
 let locale: AppLocale = readStoredLocale();
 let navOpen = false;
 
@@ -94,6 +98,17 @@ style.textContent = `
 
   * {
     box-sizing: border-box;
+  }
+
+  .visually-hidden {
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
+    clip: rect(0 0 0 0);
   }
 
   body {
@@ -284,6 +299,23 @@ style.textContent = `
     flex-wrap: wrap;
     gap: 8px;
     justify-content: flex-end;
+  }
+
+  .panel-head-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    justify-content: flex-end;
+  }
+
+  .search-field {
+    min-width: min(100%, 260px);
+  }
+
+  .search-field input {
+    background: #fffefa;
+    min-height: 40px;
   }
 
   .menu-toggle { display: none; }
@@ -607,6 +639,24 @@ style.textContent = `
 
   .confirmation-content .error { margin: 0; }
 
+  .image-upload-preview {
+    align-items: center;
+    background: #f4f0e3;
+    border: 1px dashed #cfc8b5;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    min-height: 112px;
+    overflow: hidden;
+  }
+
+  .image-upload-preview img {
+    display: block;
+    max-height: 180px;
+    object-fit: contain;
+    width: 100%;
+  }
+
   .catalog-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -865,6 +915,8 @@ style.textContent = `
     .metric { min-height: 104px; padding: 14px; }
     .metric strong { font-size: 27px; }
     .panel-head { min-height: 58px; padding: 13px 15px; }
+    .panel-head { align-items: flex-start; flex-direction: column; }
+    .panel-head-actions, .search-field { width: 100%; }
     .form, .chart { padding: 15px; }
     .modal-overlay { align-items: flex-end; padding: 0; }
     .modal { border-bottom-left-radius: 0; border-bottom-right-radius: 0; max-height: min(88vh, 760px); }
@@ -973,6 +1025,11 @@ const translations: Record<AppLocale, Readonly<Record<string, string>>> = {
     "No records.": "Нет данных.",
     Products: "Товары",
     "New product": "Новый товар",
+    "Search products": "Поиск товаров",
+    "Search categories": "Поиск категорий",
+    "Search pricing": "Поиск по товарам",
+    "No matching products.": "Товары не найдены.",
+    "No matching categories.": "Категории не найдены.",
     Product: "Товар",
     Category: "Категория",
     Unit: "Единица",
@@ -998,6 +1055,12 @@ const translations: Record<AppLocale, Readonly<Record<string, string>>> = {
       "Товар из истории заказов нельзя удалить. Отключите его вместо этого.",
     "A category with products cannot be deleted. Move or delete its products first.":
       "Категорию с товарами нельзя удалить. Сначала перенесите или удалите товары.",
+    "Only PNG, JPEG, and WebP images are supported.":
+      "Поддерживаются только изображения PNG, JPEG и WebP.",
+    "Invalid image upload.": "Некорректный файл изображения.",
+    "Image upload is empty.": "Файл изображения пуст.",
+    "Image must be 5 MB or smaller.": "Изображение должно быть не больше 5 МБ.",
+    "Image not found.": "Изображение не найдено.",
     Categories: "Категории",
     "New category": "Новая категория",
     "Add product": "Добавить товар",
@@ -1006,6 +1069,11 @@ const translations: Record<AppLocale, Readonly<Record<string, string>>> = {
     Close: "Закрыть",
     Name: "Название",
     Description: "Описание",
+    "Upload photo": "Загрузить фото",
+    "PNG, JPEG or WebP, up to 5 MB.": "PNG, JPEG или WebP, до 5 МБ.",
+    "No photo selected.": "Фото не выбрано.",
+    "Choose a PNG, JPEG or WebP image up to 5 MB.":
+      "Выберите PNG, JPEG или WebP до 5 МБ.",
     "Image URL": "Ссылка на изображение",
     "Customer price, KZT": "Цена для клиента, KZT",
     "Internal cost, KZT": "Себестоимость, KZT",
@@ -1140,6 +1208,11 @@ const translations: Record<AppLocale, Readonly<Record<string, string>>> = {
     "No records.": "Дерек жоқ.",
     Products: "Тауарлар",
     "New product": "Жаңа тауар",
+    "Search products": "Тауарларды іздеу",
+    "Search categories": "Санаттарды іздеу",
+    "Search pricing": "Тауарлар бойынша іздеу",
+    "No matching products.": "Тауарлар табылмады.",
+    "No matching categories.": "Санаттар табылмады.",
     Product: "Тауар",
     Category: "Санат",
     Unit: "Өлшем",
@@ -1165,6 +1238,12 @@ const translations: Record<AppLocale, Readonly<Record<string, string>>> = {
       "Тапсырыс тарихы бар тауарды жоюға болмайды. Оның орнына өшіріңіз.",
     "A category with products cannot be deleted. Move or delete its products first.":
       "Тауарлары бар санатты жоюға болмайды. Алдымен тауарларды ауыстырыңыз немесе жойыңыз.",
+    "Only PNG, JPEG, and WebP images are supported.":
+      "Тек PNG, JPEG және WebP суреттеріне қолдау көрсетіледі.",
+    "Invalid image upload.": "Сурет файлы қате.",
+    "Image upload is empty.": "Сурет файлы бос.",
+    "Image must be 5 MB or smaller.": "Сурет 5 МБ-тан аспауы керек.",
+    "Image not found.": "Сурет табылмады.",
     Categories: "Санаттар",
     "New category": "Жаңа санат",
     "Add product": "Тауар қосу",
@@ -1173,6 +1252,11 @@ const translations: Record<AppLocale, Readonly<Record<string, string>>> = {
     Close: "Жабу",
     Name: "Атауы",
     Description: "Сипаттама",
+    "Upload photo": "Фото жүктеу",
+    "PNG, JPEG or WebP, up to 5 MB.": "PNG, JPEG немесе WebP, 5 МБ дейін.",
+    "No photo selected.": "Фото таңдалмады.",
+    "Choose a PNG, JPEG or WebP image up to 5 MB.":
+      "5 МБ дейінгі PNG, JPEG немесе WebP суретін таңдаңыз.",
     "Image URL": "Сурет сілтемесі",
     "Customer price, KZT": "Клиент бағасы, KZT",
     "Internal cost, KZT": "Өзіндік құны, KZT",
@@ -1243,6 +1327,7 @@ const auditActionLabels: Record<AppLocale, Readonly<Record<string, string>>> = {
     "admin.product_create": "Product created",
     "admin.product_update": "Product updated",
     "admin.product_delete": "Product deleted",
+    "admin.product_image_upload": "Product image uploaded",
     "admin.product_availability_update": "Availability updated",
     "admin.product_price_update": "Product price updated",
     "admin.assign_picker": "Picker assigned",
@@ -1265,6 +1350,7 @@ const auditActionLabels: Record<AppLocale, Readonly<Record<string, string>>> = {
     "admin.product_create": "Создан товар",
     "admin.product_update": "Изменён товар",
     "admin.product_delete": "Удалён товар",
+    "admin.product_image_upload": "Загружено фото товара",
     "admin.product_availability_update": "Обновлено наличие",
     "admin.product_price_update": "Обновлена цена товара",
     "admin.assign_picker": "Назначен сборщик",
@@ -1287,6 +1373,7 @@ const auditActionLabels: Record<AppLocale, Readonly<Record<string, string>>> = {
     "admin.product_create": "Тауар құрылды",
     "admin.product_update": "Тауар өзгертілді",
     "admin.product_delete": "Тауар жойылды",
+    "admin.product_image_upload": "Тауар фотосы жүктелді",
     "admin.product_availability_update": "Қолжетімділік жаңартылды",
     "admin.product_price_update": "Тауар бағасы жаңартылды",
     "admin.assign_picker": "Жинаушы тағайындалды",
@@ -1308,6 +1395,7 @@ const auditEntityLabels: Record<AppLocale, Readonly<Record<string, string>>> = {
   en: {
     category: "Category",
     product: "Product",
+    product_image: "Product image",
     order: "Order",
     order_item: "Order item",
     payment: "Payment",
@@ -1317,6 +1405,7 @@ const auditEntityLabels: Record<AppLocale, Readonly<Record<string, string>>> = {
   ru: {
     category: "Категория",
     product: "Товар",
+    product_image: "Фото товара",
     order: "Заказ",
     order_item: "Позиция заказа",
     payment: "Платёж",
@@ -1326,6 +1415,7 @@ const auditEntityLabels: Record<AppLocale, Readonly<Record<string, string>>> = {
   kk: {
     category: "Санат",
     product: "Тауар",
+    product_image: "Тауар фотосы",
     order: "Тапсырыс",
     order_item: "Тапсырыс тауары",
     payment: "Төлем",
@@ -1338,6 +1428,8 @@ const auditFieldLabels: Record<AppLocale, Readonly<Record<string, string>>> = {
   en: {
     name: "Name",
     slug: "Slug",
+    contentType: "Image type",
+    sizeBytes: "File size",
     customerPriceMinor: "Customer price",
     internalCostMinor: "Internal cost",
     isActive: "Active",
@@ -1359,6 +1451,8 @@ const auditFieldLabels: Record<AppLocale, Readonly<Record<string, string>>> = {
   ru: {
     name: "Название",
     slug: "Слаг",
+    contentType: "Тип изображения",
+    sizeBytes: "Размер файла",
     customerPriceMinor: "Цена для клиента",
     internalCostMinor: "Себестоимость",
     isActive: "Активность",
@@ -1380,6 +1474,8 @@ const auditFieldLabels: Record<AppLocale, Readonly<Record<string, string>>> = {
   kk: {
     name: "Атауы",
     slug: "Слаг",
+    contentType: "Сурет түрі",
+    sizeBytes: "Файл өлшемі",
     customerPriceMinor: "Клиент бағасы",
     internalCostMinor: "Өзіндік құны",
     isActive: "Белсенділік",
@@ -1428,6 +1524,8 @@ function renderLocaleToggle(): string {
 if (root) {
   root.addEventListener("click", (event) => void handleClick(event));
   root.addEventListener("submit", (event) => void handleSubmit(event));
+  root.addEventListener("input", handleSearchInput);
+  root.addEventListener("change", handleProductImageSelection);
   render();
   void boot();
 }
@@ -1686,16 +1784,31 @@ function renderOrderStatusChart(): string {
 }
 
 function renderCatalog(): string {
+  const products = data.products.filter(({ product }) =>
+    matchesSearch(catalogProductSearch, [
+      product.name,
+      product.description ?? "",
+      categoryName(product.categoryId),
+      product.unit,
+    ]),
+  );
+  const categories = data.categories.filter((category) =>
+    matchesSearch(catalogCategorySearch, [category.name, category.slug]),
+  );
+
   return `
     <div class="catalog-layout">
       <section class="panel catalog-panel">
         <div class="panel-head">
           <h3>${t("Products")}</h3>
-          <button class="secondary" type="button" data-action="new-product">${t("New product")}</button>
+          <div class="panel-head-actions">
+            ${searchInput("catalog-products", catalogProductSearch, "Search products")}
+            <button class="secondary" type="button" data-action="new-product">${t("New product")}</button>
+          </div>
         </div>
         ${table(
           ["", "Product", "Category", "Unit", "Price", "State", ""].map(t),
-          data.products.map(({ product, price, availability }) => [
+          products.map(({ product, price, availability }) => [
             product.imageUrl
               ? `<img class="thumb" src="${escapeAttribute(product.imageUrl)}" alt="${escapeAttribute(product.name)}" />`
               : `<div class="thumb" aria-hidden="true"></div>`,
@@ -1710,16 +1823,20 @@ function renderCatalog(): string {
               <button class="link-button danger-link" type="button" data-action="request-delete-product" data-product-id="${escapeAttribute(product.id)}" data-product-name="${escapeAttribute(product.name)}">${t("Delete")}</button>
             </div>`,
           ]),
+          t("No matching products."),
         )}
       </section>
       <section class="panel catalog-panel">
         <div class="panel-head">
           <h3>${t("Categories")}</h3>
-          <button class="secondary" type="button" data-action="new-category">${t("New category")}</button>
+          <div class="panel-head-actions">
+            ${searchInput("catalog-categories", catalogCategorySearch, "Search categories")}
+            <button class="secondary" type="button" data-action="new-category">${t("New category")}</button>
+          </div>
         </div>
         ${table(
           ["Name", "Slug", "Sort order", "State", ""].map(t),
-          data.categories.map((category) => [
+          categories.map((category) => [
             escapeHtml(category.name),
             escapeHtml(category.slug),
             String(category.sortOrder),
@@ -1732,6 +1849,7 @@ function renderCatalog(): string {
               <button class="link-button danger-link" type="button" data-action="request-delete-category" data-category-id="${escapeAttribute(category.id)}" data-category-name="${escapeAttribute(category.name)}">${t("Delete")}</button>
             </div>`,
           ]),
+          t("No matching categories."),
         )}
       </section>
     </div>
@@ -1847,6 +1965,14 @@ function renderProductForm(): string {
           <label>${t("Image URL")}</label>
           <input name="imageUrl" value="${escapeAttribute(product?.product.imageUrl ?? "")}" />
         </div>
+        <div class="field full">
+          <label>${t("Upload photo")}</label>
+          <input name="imageFile" type="file" accept="image/jpeg,image/png,image/webp" data-product-image-input />
+          <span class="muted">${t("PNG, JPEG or WebP, up to 5 MB.")}</span>
+          <div class="image-upload-preview" id="product-image-preview" data-current-image-url="${escapeAttribute(product?.product.imageUrl ?? "")}">
+            ${renderProductImagePreview(product?.product.imageUrl)}
+          </div>
+        </div>
         ${
           isEditing
             ? ""
@@ -1909,6 +2035,14 @@ function renderCategoryForm(): string {
 }
 
 function renderPricing(): string {
+  const products = data.products.filter(({ product }) =>
+    matchesSearch(pricingSearch, [
+      product.name,
+      product.description ?? "",
+      categoryName(product.categoryId),
+      product.unit,
+    ]),
+  );
   const selectedProduct = selectedPriceProductId
     ? data.products.find(
         (candidate) => candidate.product.id === selectedPriceProductId,
@@ -1926,10 +2060,13 @@ function renderPricing(): string {
     </div>
     <div class="grid">
       <section class="panel">
-        <div class="panel-head"><h3>${t("Current prices")}</h3></div>
+        <div class="panel-head">
+          <h3>${t("Current prices")}</h3>
+          <div class="panel-head-actions">${searchInput("pricing", pricingSearch, "Search pricing")}</div>
+        </div>
         ${table(
           ["Product", "Customer", "Cost", "Margin", ""].map(t),
-          data.products.map(({ product, price }) => [
+          products.map(({ product, price }) => [
             `<strong>${escapeHtml(product.name)}</strong><br><span class="muted">${escapeHtml(product.unit)}</span>`,
             formatMoney(price.customerPrice),
             price.internalCost ? formatMoney(price.internalCost) : "-",
@@ -1942,6 +2079,7 @@ function renderPricing(): string {
               <button class="secondary" type="button" data-action="load-price-history" data-product-id="${escapeAttribute(product.id)}">${t("History")}</button>
             </form>`,
           ]),
+          t("No matching products."),
         )}
       </section>
       <section class="panel">
@@ -2377,6 +2515,120 @@ async function handleSubmit(event: Event): Promise<void> {
   }
 }
 
+function handleSearchInput(event: Event): void {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement)) {
+    return;
+  }
+
+  const scope = target.dataset.searchScope;
+  if (
+    scope !== "catalog-products" &&
+    scope !== "catalog-categories" &&
+    scope !== "pricing"
+  ) {
+    return;
+  }
+
+  if (scope === "catalog-products") {
+    catalogProductSearch = target.value;
+  } else if (scope === "catalog-categories") {
+    catalogCategorySearch = target.value;
+  } else {
+    pricingSearch = target.value;
+  }
+
+  render();
+  window.requestAnimationFrame(() => {
+    const input = root?.querySelector<HTMLInputElement>(
+      `[data-search-scope="${scope}"]`,
+    );
+    input?.focus();
+    input?.setSelectionRange(input.value.length, input.value.length);
+  });
+}
+
+function handleProductImageSelection(event: Event): void {
+  const target = event.target;
+  if (
+    !(target instanceof HTMLInputElement) ||
+    !("productImageInput" in target.dataset)
+  ) {
+    return;
+  }
+
+  const preview = root?.querySelector<HTMLDivElement>("#product-image-preview");
+  if (!preview) {
+    return;
+  }
+
+  const previousObjectUrl = preview.dataset.objectUrl;
+  if (previousObjectUrl) {
+    URL.revokeObjectURL(previousObjectUrl);
+  }
+
+  const file = target.files?.[0];
+  if (!file) {
+    preview.innerHTML = renderProductImagePreview(
+      preview.dataset.currentImageUrl || undefined,
+    );
+    delete preview.dataset.objectUrl;
+    return;
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  preview.dataset.objectUrl = objectUrl;
+  preview.innerHTML = renderProductImagePreview(objectUrl);
+}
+
+async function uploadProductImage(
+  form: HTMLFormElement,
+): Promise<string | undefined> {
+  const imageInput = form.elements.namedItem("imageFile");
+  if (!(imageInput instanceof HTMLInputElement)) {
+    return undefined;
+  }
+
+  const file = imageInput.files?.[0];
+  if (!file) {
+    return undefined;
+  }
+  if (
+    !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
+    file.size > 5 * 1024 * 1024
+  ) {
+    throw new Error(t("Choose a PNG, JPEG or WebP image up to 5 MB."));
+  }
+
+  const result = await apiSend<{ readonly url: string }>(
+    "/api/admin/uploads/product-images",
+    {
+      method: "POST",
+      body: { dataBase64: await readFileAsBase64(file) },
+    },
+  );
+  return result.url;
+}
+
+const readFileAsBase64 = async (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error(t("Invalid image upload.")));
+        return;
+      }
+      const dataBase64 = reader.result.split(",", 2)[1];
+      if (!dataBase64) {
+        reject(new Error(t("Invalid image upload.")));
+        return;
+      }
+      resolve(dataBase64);
+    };
+    reader.onerror = () => reject(new Error(t("Invalid image upload.")));
+    reader.readAsDataURL(file);
+  });
+
 async function requestOtp(form: HTMLFormElement): Promise<void> {
   await runAction("Code requested.", async () => {
     pendingPhone = formText(form, "phone");
@@ -2453,6 +2705,7 @@ async function saveProduct(
   await runAction(
     isEditing ? "Product saved." : "Product created.",
     async () => {
+      const uploadedImageUrl = await uploadProductImage(form);
       const availability = {
         isAvailable: formCheckbox(form, "isAvailable"),
         note: formOptionalText(form, "availabilityNote"),
@@ -2462,7 +2715,7 @@ async function saveProduct(
         categoryId: formText(form, "categoryId"),
         unit: formText(form, "unit"),
         description: formOptionalText(form, "description"),
-        imageUrl: formOptionalText(form, "imageUrl"),
+        imageUrl: uploadedImageUrl ?? formOptionalText(form, "imageUrl"),
         isActive: formCheckbox(form, "isActive"),
         ...(!isEditing
           ? {
@@ -2863,9 +3116,10 @@ function metric(labelText: string, value: string): string {
 function table(
   headers: readonly string[],
   rows: readonly (readonly string[])[],
+  emptyMessage = t("No records."),
 ): string {
   if (rows.length === 0) {
-    return `<div class="form"><p class="muted">${t("No records.")}</p></div>`;
+    return `<div class="form"><p class="muted">${escapeHtml(emptyMessage)}</p></div>`;
   }
 
   return `
@@ -2885,6 +3139,33 @@ function table(
       </table>
     </div>
   `;
+}
+
+function searchInput(
+  scope: SearchScope,
+  value: string,
+  label: "Search products" | "Search categories" | "Search pricing",
+): string {
+  return `
+    <label class="search-field">
+      <span class="visually-hidden">${t(label)}</span>
+      <input type="search" data-search-scope="${scope}" value="${escapeAttribute(value)}" placeholder="${escapeAttribute(t(label))}" autocomplete="off" />
+    </label>
+  `;
+}
+
+function matchesSearch(query: string, values: readonly string[]): boolean {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  return (
+    normalizedQuery.length === 0 ||
+    values.some((value) => value.toLocaleLowerCase().includes(normalizedQuery))
+  );
+}
+
+function renderProductImagePreview(imageUrl: string | undefined): string {
+  return imageUrl
+    ? `<img src="${escapeAttribute(imageUrl)}" alt="${escapeAttribute(t("Product"))}" />`
+    : `<span class="muted">${t("No photo selected.")}</span>`;
 }
 
 function assignmentForm(

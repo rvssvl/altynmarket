@@ -150,6 +150,11 @@ describe("catalog deletion", () => {
 
     await api.admin.deleteProduct(admin, product.product.id);
     await api.admin.deleteCategory(admin, category.id);
+    await api.admin.recordProductImageUpload(admin, {
+      fileName: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.png",
+      contentType: "image/png",
+      sizeBytes: 68,
+    });
 
     expect(
       (await api.admin.listCatalogProducts(admin)).find(
@@ -164,7 +169,11 @@ describe("catalog deletion", () => {
     expect(
       (await api.admin.listAuditLog(admin)).map((entry) => entry.action),
     ).toEqual(
-      expect.arrayContaining(["admin.product_delete", "admin.category_delete"]),
+      expect.arrayContaining([
+        "admin.product_delete",
+        "admin.category_delete",
+        "admin.product_image_upload",
+      ]),
     );
   });
 

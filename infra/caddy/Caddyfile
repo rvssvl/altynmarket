@@ -43,6 +43,11 @@
       reverse_proxy api:4000
     }
 
+    handle /uploads/* {
+      encode zstd gzip
+      reverse_proxy api:4000
+    }
+
     handle {
       encode zstd gzip
       reverse_proxy backoffice:4173
