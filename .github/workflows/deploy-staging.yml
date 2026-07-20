@@ -1,9 +1,12 @@
 name: Deploy staging
 
+# Staging redeploys on every push to the staging branch. When production
+# infrastructure exists, a deploy-production workflow will target main the
+# same way.
 on:
   push:
     branches:
-      - main
+      - staging
   workflow_dispatch:
 
 concurrency:
