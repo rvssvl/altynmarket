@@ -370,7 +370,17 @@ function render(): void {
         <div class="shell final-layout"><div><p class="eyebrow"><span></span>ALTYN MARKET</p><h2>${copy.finalTitle}</h2><p>${copy.finalText}</p></div><a class="button button-light" href="#customer-app">${copy.openApp}<span aria-hidden="true">-></span></a></div>
       </section>
     </main>
-    <footer class="shell"><a class="brand" href="#top"><span class="brand-mark">a</span><span>altyn<br />market</span></a><p>${copy.footer}</p><a href="#top">↑</a></footer>
+    <footer class="site-footer">
+      <div class="shell footer-main">
+        <a class="brand" href="#top"><span class="brand-mark">a</span><span>altyn<br />market</span></a>
+        <p>${copy.footer}</p>
+        <a href="#top" aria-label="Back to top">↑</a>
+      </div>
+      <div class="shell legal-details" aria-label="Company details">
+        <p lang="ru">ТОО «Winlight», БИН 260740013891<br />Казахстан, город Алматы, Медеуский район, улица Омаровой Ж, дом 37, кв. 166, почтовый индекс 050000</p>
+        <p lang="en">Winlight LLP, BIN 260740013891<br />37 Z. Omarova Street, Apt. 166, Medeu District, Almaty, 050000, Kazakhstan</p>
+      </div>
+    </footer>
   `;
 
   for (const button of Array.from(

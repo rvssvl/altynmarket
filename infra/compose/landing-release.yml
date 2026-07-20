@@ -1,0 +1,31 @@
+name: altyn-market-staging
+
+services:
+  landing:
+    build:
+      context: ../..
+      dockerfile: infra/docker/landing.Dockerfile
+      args:
+        VITE_CUSTOMER_APP_URL: ${VITE_CUSTOMER_APP_URL:-}
+    networks:
+      - application
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4174/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+networks:
+  application:
+    name: altyn-market-staging_application
+    external: true

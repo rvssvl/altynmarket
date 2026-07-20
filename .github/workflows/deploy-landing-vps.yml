@@ -1,0 +1,97 @@
+name: Deploy landing to VPS
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/landing/**"
+      - ".dockerignore"
+      - ".github/workflows/deploy-landing-vps.yml"
+      - "infra/compose/landing-release.yml"
+      - "infra/docker/landing.Dockerfile"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+
+concurrency:
+  group: landing-vps-deployment
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify landing
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build landing
+        run: pnpm build:landing
+
+  deploy:
+    name: Deploy landing release
+    needs: verify
+    runs-on: ubuntu-24.04
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keygen -y -f ~/.ssh/id_ed25519 >/dev/null
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+      - name: Upload landing release
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          STAGING_SSH_PORT: ${{ secrets.STAGING_SSH_PORT }}
+        run: |
+          release_path="/opt/altyn-market/landing-releases/${GITHUB_SHA}"
+          ssh -p "$STAGING_SSH_PORT" "$STAGING_SSH_USER@$STAGING_HOST" "mkdir -p '$release_path'"
+          rsync --archive --delete \
+            --exclude .git \
+            --exclude .github \
+            --exclude .pnpm-store \
+            --exclude node_modules \
+            --exclude dist \
+            --exclude .env \
+            --exclude '.env.*' \
+            -e "ssh -p $STAGING_SSH_PORT" \
+            ./ "$STAGING_SSH_USER@$STAGING_HOST:$release_path/"
+      - name: Activate landing release
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          STAGING_SSH_PORT: ${{ secrets.STAGING_SSH_PORT }}
+        run: |
+          release_path="/opt/altyn-market/landing-releases/${GITHUB_SHA}"
+          ssh -p "$STAGING_SSH_PORT" "$STAGING_SSH_USER@$STAGING_HOST" "
+            docker compose --project-name altyn-market-staging \
+              --env-file /etc/altyn-market/staging.env \
+              --file '$release_path/infra/compose/landing-release.yml' \
+              up --detach --build --no-deps landing
+            landing_id=\$(docker compose --project-name altyn-market-staging \
+              --env-file /etc/altyn-market/staging.env \
+              --file '$release_path/infra/compose/landing-release.yml' \
+              ps --quiet landing)
+            test -n \"\$landing_id\"
+            docker exec \"\$landing_id\" node -e \"fetch('http://127.0.0.1:4174/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\"
+          "
