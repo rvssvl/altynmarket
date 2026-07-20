@@ -1,14 +1,14 @@
 import type { Migration } from "./index.js";
 
 const initialSchema = `
-create table users (
+create table if not exists users (
   id uuid primary key,
   phone_e164 text not null unique,
   full_name text,
   created_at timestamptz not null default now()
 );
 
-create table staff_profiles (
+create table if not exists staff_profiles (
   id uuid primary key,
   user_id uuid not null references users(id),
   display_name text not null,
@@ -17,7 +17,7 @@ create table staff_profiles (
   created_at timestamptz not null default now()
 );
 
-create table addresses (
+create table if not exists addresses (
   id uuid primary key,
   user_id uuid not null references users(id),
   label text not null,
@@ -31,7 +31,7 @@ create table addresses (
   longitude numeric
 );
 
-create table categories (
+create table if not exists categories (
   id uuid primary key,
   name text not null,
   slug text not null unique,
@@ -39,7 +39,7 @@ create table categories (
   is_active boolean not null default true
 );
 
-create table products (
+create table if not exists products (
   id uuid primary key,
   category_id uuid not null references categories(id),
   name text not null,
@@ -50,7 +50,7 @@ create table products (
   created_at timestamptz not null default now()
 );
 
-create table product_prices (
+create table if not exists product_prices (
   id uuid primary key,
   product_id uuid not null references products(id),
   customer_price_minor integer not null,
@@ -59,14 +59,14 @@ create table product_prices (
   effective_from timestamptz not null default now()
 );
 
-create table product_availability (
+create table if not exists product_availability (
   product_id uuid primary key references products(id),
   is_available boolean not null default true,
   note text,
   updated_at timestamptz not null default now()
 );
 
-create table orders (
+create table if not exists orders (
   id uuid primary key,
   customer_id uuid not null references users(id),
   address_id uuid not null references addresses(id),
@@ -79,7 +79,7 @@ create table orders (
   updated_at timestamptz not null default now()
 );
 
-create table order_items (
+create table if not exists order_items (
   id uuid primary key,
   order_id uuid not null references orders(id),
   product_id uuid not null references products(id),
@@ -93,7 +93,7 @@ create table order_items (
   cancellation_reason text
 );
 
-create table order_status_history (
+create table if not exists order_status_history (
   id uuid primary key,
   order_id uuid not null references orders(id),
   from_status text,
@@ -103,7 +103,7 @@ create table order_status_history (
   created_at timestamptz not null default now()
 );
 
-create table payments (
+create table if not exists payments (
   id uuid primary key,
   order_id uuid not null unique references orders(id),
   provider text not null,
@@ -116,7 +116,7 @@ create table payments (
   updated_at timestamptz not null default now()
 );
 
-create table refunds (
+create table if not exists refunds (
   id uuid primary key,
   payment_id uuid not null references payments(id),
   amount_minor integer not null,
@@ -126,7 +126,7 @@ create table refunds (
   created_at timestamptz not null default now()
 );
 
-create table picking_tasks (
+create table if not exists picking_tasks (
   id uuid primary key,
   order_id uuid not null references orders(id),
   picker_id uuid not null references staff_profiles(id),
@@ -135,7 +135,7 @@ create table picking_tasks (
   completed_at timestamptz
 );
 
-create table delivery_tasks (
+create table if not exists delivery_tasks (
   id uuid primary key,
   order_id uuid not null references orders(id),
   courier_id uuid not null references staff_profiles(id),
@@ -144,7 +144,7 @@ create table delivery_tasks (
   delivered_at timestamptz
 );
 
-create table notifications (
+create table if not exists notifications (
   id uuid primary key,
   user_id uuid not null references users(id),
   order_id uuid references orders(id),
@@ -154,7 +154,7 @@ create table notifications (
   created_at timestamptz not null default now()
 );
 
-create table admin_audit_log (
+create table if not exists admin_audit_log (
   id uuid primary key,
   actor_user_id uuid not null references users(id),
   action text not null,
@@ -164,15 +164,15 @@ create table admin_audit_log (
   created_at timestamptz not null default now()
 );
 
-create index orders_status_idx on orders(status);
-create index order_items_order_id_idx on order_items(order_id);
-create index picking_tasks_picker_status_idx on picking_tasks(picker_id, status);
-create index delivery_tasks_courier_status_idx on delivery_tasks(courier_id, status);
-create index notifications_status_idx on notifications(status);
+create index if not exists orders_status_idx on orders(status);
+create index if not exists order_items_order_id_idx on order_items(order_id);
+create index if not exists picking_tasks_picker_status_idx on picking_tasks(picker_id, status);
+create index if not exists delivery_tasks_courier_status_idx on delivery_tasks(courier_id, status);
+create index if not exists notifications_status_idx on notifications(status);
 `;
 
 const authCartSessions = `
-create table otp_challenges (
+create table if not exists otp_challenges (
   id uuid primary key,
   phone_e164 text not null,
   code_hash text not null,
@@ -182,11 +182,11 @@ create table otp_challenges (
   created_at timestamptz not null default now()
 );
 
-create index otp_challenges_phone_active_idx
+create index if not exists otp_challenges_phone_active_idx
   on otp_challenges(phone_e164, expires_at desc)
   where consumed_at is null;
 
-create table device_sessions (
+create table if not exists device_sessions (
   id uuid primary key,
   user_id uuid not null references users(id),
   device_name text,
@@ -197,9 +197,9 @@ create table device_sessions (
   last_seen_at timestamptz not null default now()
 );
 
-create index device_sessions_user_idx on device_sessions(user_id, revoked_at);
+create index if not exists device_sessions_user_idx on device_sessions(user_id, revoked_at);
 
-create table auth_sessions (
+create table if not exists auth_sessions (
   id uuid primary key,
   user_id uuid not null references users(id),
   device_session_id uuid not null references device_sessions(id),
@@ -210,9 +210,9 @@ create table auth_sessions (
   last_seen_at timestamptz not null default now()
 );
 
-create index auth_sessions_user_idx on auth_sessions(user_id, expires_at desc);
+create index if not exists auth_sessions_user_idx on auth_sessions(user_id, expires_at desc);
 
-create table refresh_tokens (
+create table if not exists refresh_tokens (
   id uuid primary key,
   session_id uuid not null references auth_sessions(id),
   token_hash text not null unique,
@@ -223,9 +223,9 @@ create table refresh_tokens (
   created_at timestamptz not null default now()
 );
 
-create index refresh_tokens_session_idx on refresh_tokens(session_id);
+create index if not exists refresh_tokens_session_idx on refresh_tokens(session_id);
 
-create table carts (
+create table if not exists carts (
   id uuid primary key,
   user_id uuid not null references users(id),
   status text not null,
@@ -233,9 +233,9 @@ create table carts (
   updated_at timestamptz not null default now()
 );
 
-create unique index carts_active_user_idx on carts(user_id) where status = 'active';
+create unique index if not exists carts_active_user_idx on carts(user_id) where status = 'active';
 
-create table cart_items (
+create table if not exists cart_items (
   cart_id uuid not null references carts(id) on delete cascade,
   product_id uuid not null references products(id),
   quantity numeric not null,
@@ -245,10 +245,10 @@ create table cart_items (
 );
 
 alter table payments
-  add column provider_redirect_url text,
-  add column provider_deeplink_url text;
+  add column if not exists provider_redirect_url text,
+  add column if not exists provider_deeplink_url text;
 
-create index staff_profiles_user_idx on staff_profiles(user_id);
+create index if not exists staff_profiles_user_idx on staff_profiles(user_id);
 `;
 
 const seedCatalog = `
@@ -352,7 +352,7 @@ on conflict (product_id) do nothing;
 `;
 
 const pushSubscriptions = `
-create table push_subscriptions (
+create table if not exists push_subscriptions (
   token text primary key,
   user_id uuid not null references users(id),
   platform text not null,
@@ -361,7 +361,7 @@ create table push_subscriptions (
   updated_at timestamptz not null default now()
 );
 
-create index push_subscriptions_user_enabled_idx
+create index if not exists push_subscriptions_user_enabled_idx
   on push_subscriptions(user_id, enabled);
 `;
 

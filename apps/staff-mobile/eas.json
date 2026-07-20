@@ -1,0 +1,44 @@
+{
+  "cli": {
+    "version": ">= 20.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://api-staging.altyn-market.kz"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://api-staging.altyn-market.kz"
+      }
+    },
+    "demo": {
+      "autoIncrement": true,
+      "channel": "demo",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://api-staging.altyn-market.kz"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://api-staging.altyn-market.kz"
+      }
+    }
+  },
+  "submit": {
+    "demo": {
+      "ios": {
+        "ascAppId": "6791221961"
+      }
+    }
+  }
+}

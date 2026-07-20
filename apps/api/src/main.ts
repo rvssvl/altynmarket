@@ -3,11 +3,7 @@ import {
   migrations,
   runMigrations,
 } from "@altyn-market/database";
-import { createAuthService } from "./auth-service.js";
-import {
-  createBackendServices,
-  ensureBootstrapAdmin,
-} from "./backend-services.js";
+import { createAuthService, ensureBootstrapAdmin } from "./auth-service.js";
 import { readAppConfig, readSecretConfig } from "./config.js";
 import { createHttpApiServer } from "./http.js";
 import { createInMemoryStore } from "./in-memory-store.js";
@@ -46,16 +42,22 @@ const authService = createAuthService(store, {
 await ensureBootstrapAdmin(authService, secretConfig.bootstrapAdminPhone);
 
 const paymentProvider = createRuntimePaymentProvider(secretConfig);
-const api = createBackendServices({
+const server = createHttpApiServer({
   store,
   auth: authService,
   paymentProvider,
   realtime,
   flatDeliveryFee: appConfig.flatDeliveryFee,
 });
-const server = createHttpApiServer(api, realtime);
 
 await server.start(Number(process.env.PORT ?? "4000"));
+
+const shutdown = () => {
+  void server.dispose();
+};
+
+process.once("SIGINT", shutdown);
+process.once("SIGTERM", shutdown);
 
 async function createPostgresRuntime(databaseUrl: string) {
   const database = await createPostgresDatabase({

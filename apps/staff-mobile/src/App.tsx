@@ -11,6 +11,8 @@ import type {
   Order,
   OrderItem,
 } from "@altyn-market/domain";
+import { RegistryProvider, useAtom } from "@effect/atom-react";
+import * as Atom from "effect/unstable/reactivity/Atom";
 import { StatusBar } from "expo-status-bar";
 import {
   useCallback,
@@ -31,7 +33,8 @@ import {
   View,
 } from "react-native";
 
-const apiBaseUrl = "https://altyn-market-api-stage-production.up.railway.app";
+const apiBaseUrl =
+  process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://api-staging.altyn-market.kz";
 const authClient = createAuthClient(apiBaseUrl);
 
 type AuthStep = "phone" | "code";
@@ -43,6 +46,9 @@ type DeliveryActionStatus = Extract<
   DeliveryTaskStatus,
   "pickup_started" | "picked_up" | "delivering" | "delivered"
 >;
+
+const staffSessionAtom = Atom.make<AuthSession | undefined>(undefined);
+const staffBackendStateAtom = Atom.make<BackendState>("checking");
 
 interface QueueSnapshot {
   readonly pickingTasks: readonly PickingTaskAssignment[];
@@ -57,15 +63,23 @@ const emptyQueueSnapshot: QueueSnapshot = {
 };
 
 export default function App() {
+  return (
+    <RegistryProvider>
+      <StaffApp />
+    </RegistryProvider>
+  );
+}
+
+function StaffApp() {
   const [phone, setPhone] = useState("+7 ");
   const [code, setCode] = useState("");
   const [devCode, setDevCode] = useState<string | undefined>();
   const [authStep, setAuthStep] = useState<AuthStep>("phone");
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState<string | undefined>();
-  const [session, setSession] = useState<AuthSession | undefined>();
+  const [session, setSession] = useAtom(staffSessionAtom);
   const [roleMode, setRoleMode] = useState<RoleMode>("picker");
-  const [backendState, setBackendState] = useState<BackendState>("checking");
+  const [backendState, setBackendState] = useAtom(staffBackendStateAtom);
   const [queueStatus, setQueueStatus] = useState<QueueStatus>("idle");
   const [queue, setQueue] = useState<QueueSnapshot>(emptyQueueSnapshot);
   const [selectedPickingTaskId, setSelectedPickingTaskId] = useState<
@@ -311,6 +325,33 @@ export default function App() {
     }
   }
 
+  async function refreshStaffAccess() {
+    if (!session) {
+      return;
+    }
+
+    setAuthBusy(true);
+    setError(undefined);
+
+    try {
+      const nextSession = await authClient.getCurrentSession(
+        session.accessToken,
+      );
+      setSession(nextSession);
+      setBackendState("online");
+      setNotice(
+        nextSession.staff
+          ? `Access updated for ${nextSession.staff.displayName}.`
+          : "Access is not assigned to this phone number yet.",
+      );
+    } catch (nextError) {
+      setBackendState("offline");
+      setError(formatError(nextError, "Could not refresh staff access."));
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
   function logout() {
     setSession(undefined);
     setQueue(emptyQueueSnapshot);
@@ -482,6 +523,15 @@ export default function App() {
               Ask an admin to assign a picker or courier profile to this phone
               number.
             </Text>
+            <Pressable
+              disabled={authBusy}
+              style={[styles.secondaryButton, authBusy && styles.disabled]}
+              onPress={() => void refreshStaffAccess()}
+            >
+              <Text style={styles.secondaryText}>
+                {authBusy ? "Refreshing..." : "Refresh access"}
+              </Text>
+            </Pressable>
           </View>
         ) : (
           <>
@@ -1194,8 +1244,14 @@ const normalizePhone = (value: string): string => {
   return trimmed;
 };
 
-const formatError = (error: unknown, fallback: string): string =>
-  error instanceof Error ? error.message : fallback;
+const formatError = (error: unknown, fallback: string): string => {
+  const message = error instanceof Error ? error.message : fallback;
+  return /fetch failed|network request failed|hostname could not be found/i.test(
+    message,
+  )
+    ? "Could not reach Altyn Market. Check your connection and try again."
+    : message;
+};
 
 const formatMoney = (money: Money): string =>
   `${new Intl.NumberFormat("ru-KZ").format(money.amountMinor / 100)} ${money.currency}`;

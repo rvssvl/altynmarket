@@ -1,8 +1,8 @@
 export * from "./api.js";
 export * from "./auth.js";
 export * from "./brand.js";
+export * from "./cart.js";
 export * from "./catalog.js";
-export * from "./errors.js";
 export * from "./ids.js";
 export * from "./metrics.js";
 export * from "./money.js";
@@ -11,5 +11,6 @@ export * from "./operations.js";
 export * from "./order.js";
 export * from "./payment.js";
 export * from "./realtime.js";
+export * from "./rpc.js";
 export * from "./user.js";
 export * from "./workflow.js";

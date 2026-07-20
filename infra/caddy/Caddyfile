@@ -19,11 +19,10 @@
 }
 
 {$API_DOMAIN} {
-  route {
-    import staging_access
-    encode zstd gzip
-    reverse_proxy api:4000
-  }
+  # Native apps cannot complete browser Basic Auth. Keep only the API public;
+  # the backoffice remains protected on ADMIN_DOMAIN below.
+  encode zstd gzip
+  reverse_proxy api:4000
 }
 
 {$ADMIN_DOMAIN} {
@@ -33,7 +32,12 @@
     # Proxy the API through the same origin as the backoffice. HTTP Basic
     # credentials are scoped to an origin, so a browser cannot reuse the admin
     # password on a separate api-staging subdomain.
-    handle /api/* {
+    handle /rpc {
+      encode zstd gzip
+      reverse_proxy api:4000
+    }
+
+    handle /realtime {
       encode zstd gzip
       reverse_proxy api:4000
     }

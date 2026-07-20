@@ -37,6 +37,12 @@ pnpm db:migrate
 pnpm --filter @altyn-market/landing dev
 ```
 
+## Mobile distribution
+
+Both mobile apps are configured for EAS Build and EAS Update. See
+[`docs/eas.md`](docs/eas.md) for build profiles, release commands, and the account
+credentials needed before the first store release.
+
 The current scaffold defines the MVP architecture and core contracts. Runtime adapters, actual
 Effect layers, payment provider integration, OTP provider integration, and UI implementation should
 be added after `./repos` is populated and the exact Effect v4 APIs are verified.

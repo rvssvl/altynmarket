@@ -1,71 +1,10 @@
-import type {
-  AuthSession,
-  RefreshSessionInput,
-  RequestOtpInput,
-  RequestOtpResult,
-  VerifyOtpInput,
-} from "./auth.js";
-import type { Category, Product, ProductPrice } from "./catalog.js";
-import type { Order, OrderStatus } from "./order.js";
-import type { Payment } from "./payment.js";
-import type { DeliveryTask, PickingTask } from "./operations.js";
+import type { PhoneNumber, UserRole } from "./auth.js";
+import type { ProductUnit } from "./catalog.js";
+import type { Order } from "./order.js";
+import type { Payment, PaymentStatus } from "./payment.js";
 import type { Money } from "./money.js";
-import type { MvpMetrics } from "./metrics.js";
-import type { OrderId, OrderItemId, ProductId, StaffId } from "./ids.js";
-import type { Address } from "./user.js";
-
-export interface ApiContract {
-  readonly auth: {
-    readonly requestOtp: (input: RequestOtpInput) => Promise<RequestOtpResult>;
-    readonly verifyOtp: (input: VerifyOtpInput) => Promise<AuthSession>;
-    readonly refreshSession: (
-      input: RefreshSessionInput,
-    ) => Promise<AuthSession>;
-    readonly getCurrentSession: (accessToken: string) => Promise<AuthSession>;
-  };
-  readonly catalog: {
-    readonly listCategories: () => Promise<readonly Category[]>;
-    readonly listProducts: () => Promise<readonly Product[]>;
-    readonly getProductPrice: (productId: ProductId) => Promise<ProductPrice>;
-  };
-  readonly cart: {
-    readonly addItem: (input: AddCartItemInput) => Promise<void>;
-    readonly removeItem: (productId: ProductId) => Promise<void>;
-    readonly checkout: (input: CheckoutInput) => Promise<CheckoutResult>;
-  };
-  readonly orders: {
-    readonly getOrder: (orderId: OrderId) => Promise<Order>;
-    readonly listMyOrders: () => Promise<readonly Order[]>;
-  };
-  readonly picking: {
-    readonly listAssignedTasks: () => Promise<readonly PickingTask[]>;
-    readonly cancelItem: (input: CancelOrderItemInput) => Promise<Order>;
-    readonly completePicking: (orderId: OrderId) => Promise<Order>;
-  };
-  readonly delivery: {
-    readonly listAssignedTasks: () => Promise<readonly DeliveryTask[]>;
-    readonly updateStatus: (
-      input: UpdateDeliveryStatusInput,
-    ) => Promise<DeliveryTask>;
-  };
-  readonly admin: {
-    readonly listOrders: (status?: OrderStatus) => Promise<readonly Order[]>;
-    readonly assignPicker: (input: AssignPickerInput) => Promise<PickingTask>;
-    readonly assignCourier: (
-      input: AssignCourierInput,
-    ) => Promise<DeliveryTask>;
-    readonly getMetrics: () => Promise<MvpMetrics>;
-  };
-}
-
-export interface AddCartItemInput {
-  readonly productId: ProductId;
-  readonly quantity: number;
-}
-
-export interface CheckoutInput {
-  readonly address: Address;
-}
+import type { CategoryId, OrderId, OrderItemId, PaymentId } from "./ids.js";
+import type { PushPlatform } from "./notifications.js";
 
 export interface CheckoutResult {
   readonly order: Order;
@@ -78,19 +17,81 @@ export interface CancelOrderItemInput {
   readonly reason: "unavailable" | "bad_quality";
 }
 
-export interface UpdateDeliveryStatusInput {
+export interface UpdatePickingItemInput {
   readonly orderId: OrderId;
-  readonly status: "pickup_started" | "picked_up" | "delivering" | "delivered";
+  readonly itemId: OrderItemId;
+  readonly status: "picked" | "cancelled";
+  readonly pickedQuantity?: number;
+  readonly reason?: "unavailable" | "bad_quality";
 }
 
-export interface AssignPickerInput {
-  readonly orderId: OrderId;
-  readonly pickerId: StaffId;
+export interface CreateStaffProfileInput {
+  readonly phone: PhoneNumber;
+  readonly displayName: string;
+  readonly roles: readonly Exclude<UserRole, "customer">[];
 }
 
-export interface AssignCourierInput {
-  readonly orderId: OrderId;
-  readonly courierId: StaffId;
+export interface AdminRefundInput {
+  readonly paymentId: PaymentId;
+  readonly amount: Money;
+  readonly reason: string;
+}
+
+export interface UpdatePaymentStatusInput {
+  readonly paymentId: PaymentId;
+  readonly status: PaymentStatus;
+}
+
+export interface CreateCategoryInput {
+  readonly name: string;
+  readonly slug: string;
+  readonly sortOrder: number;
+  readonly isActive: boolean;
+}
+
+export interface UpdateCategoryInput {
+  readonly name?: string;
+  readonly slug?: string;
+  readonly sortOrder?: number;
+  readonly isActive?: boolean;
+}
+
+export interface CreateProductInput {
+  readonly categoryId: CategoryId;
+  readonly name: string;
+  readonly description?: string;
+  readonly unit: ProductUnit;
+  readonly imageUrl?: string;
+  readonly isActive: boolean;
+  readonly customerPrice: Money;
+  readonly internalCost?: Money;
+  readonly isAvailable: boolean;
+  readonly availabilityNote?: string;
+}
+
+export interface UpdateProductInput {
+  readonly categoryId?: CategoryId;
+  readonly name?: string;
+  readonly description?: string;
+  readonly unit?: ProductUnit;
+  readonly imageUrl?: string;
+  readonly isActive?: boolean;
+}
+
+export interface UpdateProductAvailabilityInput {
+  readonly isAvailable: boolean;
+  readonly note?: string;
+}
+
+export interface UpdateProductPriceInput {
+  readonly customerPrice: Money;
+  readonly internalCost?: Money;
+  readonly effectiveFrom?: string;
+}
+
+export interface RegisterPushTokenInput {
+  readonly token: string;
+  readonly platform: PushPlatform;
 }
 
 export interface PricingConfig {

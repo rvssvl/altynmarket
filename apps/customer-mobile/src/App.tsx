@@ -15,8 +15,10 @@ import type {
   Payment,
   RealtimeEvent,
 } from "@altyn-market/domain";
+import { RegistryProvider, useAtom } from "@effect/atom-react";
 import * as Notifications from "expo-notifications";
 import * as SecureStore from "expo-secure-store";
+import * as Atom from "effect/unstable/reactivity/Atom";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -46,6 +48,9 @@ type PushState =
   | { readonly status: "disabled"; readonly label: string }
   | { readonly status: "unavailable"; readonly label: string };
 
+const customerSessionAtom = Atom.make<AuthSession | undefined>(undefined);
+const customerBackendStateAtom = Atom.make<BackendState>("checking");
+
 type CheckoutAddressForm = {
   readonly city: string;
   readonly street: string;
@@ -70,7 +75,8 @@ type EventSourceLike = {
 
 type EventSourceConstructor = new (url: string) => EventSourceLike;
 
-const apiBaseUrl = "https://altyn-market-api-stage-production.up.railway.app";
+const apiBaseUrl =
+  process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://api-staging.altyn-market.kz";
 const sessionStorageKey = "altyn-market.customer.session";
 const secureStoreOptions = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
@@ -88,6 +94,14 @@ Notifications.setNotificationHandler({
 });
 
 export default function App() {
+  return (
+    <RegistryProvider>
+      <CustomerApp />
+    </RegistryProvider>
+  );
+}
+
+function CustomerApp() {
   const [screen, setScreen] = useState<Screen>("catalog");
   const [phone, setPhone] = useState("+7 ");
   const [code, setCode] = useState("");
@@ -96,7 +110,7 @@ export default function App() {
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState<string | undefined>();
   const [sessionLoading, setSessionLoading] = useState(true);
-  const [session, setSession] = useState<AuthSession | undefined>();
+  const [session, setSession] = useAtom(customerSessionAtom);
   const [categories, setCategories] = useState<readonly Category[]>([]);
   const [catalog, setCatalog] = useState<readonly CustomerCatalogProduct[]>([]);
   const [cart, setCart] = useState<CustomerCartSnapshot>(emptyCart);
@@ -112,7 +126,7 @@ export default function App() {
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | undefined>();
   const [notice, setNotice] = useState<string | undefined>();
-  const [backendState, setBackendState] = useState<BackendState>("checking");
+  const [backendState, setBackendState] = useAtom(customerBackendStateAtom);
   const [realtimeState, setRealtimeState] = useState<RealtimeState>("idle");
   const [pushState, setPushState] = useState<PushState>({
     status: "idle",
@@ -303,8 +317,10 @@ export default function App() {
       setCart(nextCart);
       setOrders(sortOrders(nextOrders));
       setExpandedOrderId((current) => current || nextOrders[0]?.id || "");
+      setBackendState("online");
     } catch (error) {
       setDataError(toErrorMessage(error, "Could not load customer data."));
+      setBackendState("offline");
     } finally {
       setDataLoading(false);
     }
@@ -333,7 +349,7 @@ export default function App() {
     }
 
     const source = new EventSourceCtor(
-      `${apiBaseUrl}/api/realtime?access_token=${encodeURIComponent(accessToken)}`,
+      `${apiBaseUrl}/realtime?access_token=${encodeURIComponent(accessToken)}`,
     );
     const handleEvent = (event: RealtimeMessageEvent) => {
       try {
@@ -647,7 +663,20 @@ export default function App() {
             )}
 
             {authError ? (
-              <Text style={styles.errorText}>{authError}</Text>
+              <>
+                <Text style={styles.errorText}>{authError}</Text>
+                <Pressable
+                  disabled={authBusy || backendState === "checking"}
+                  style={styles.secondaryButton}
+                  onPress={() => void checkBackend()}
+                >
+                  <Text style={styles.secondaryText}>
+                    {backendState === "checking"
+                      ? "Checking connection..."
+                      : "Check connection"}
+                  </Text>
+                </Pressable>
+              </>
             ) : null}
           </View>
         </ScrollView>
@@ -1493,8 +1522,14 @@ const deliveryLabel = (status: Order["status"]): string => {
 
 const shortId = (value: string): string => value.slice(0, 8);
 
-const toErrorMessage = (error: unknown, fallback: string): string =>
-  error instanceof Error ? error.message : fallback;
+const toErrorMessage = (error: unknown, fallback: string): string => {
+  const message = error instanceof Error ? error.message : fallback;
+  return /fetch failed|network request failed|hostname could not be found/i.test(
+    message,
+  )
+    ? "Could not reach Altyn Market. Check your connection and try again."
+    : message;
+};
 
 const styles = StyleSheet.create({
   safe: {

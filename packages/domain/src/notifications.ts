@@ -2,6 +2,8 @@ import type { NotificationId, OrderId, UserId } from "./ids.js";
 
 export type NotificationChannel = "sms" | "push" | "whatsapp";
 
+export type PushPlatform = "ios" | "android" | "web" | "unknown";
+
 export type NotificationEvent =
   | "otp_requested"
   | "order_accepted"

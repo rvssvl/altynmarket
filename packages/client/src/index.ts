@@ -1,46 +1,42 @@
 import type {
-  ApiContract,
+  AuthSession,
   Category,
   CheckoutResult,
-  AuthSession,
+  DeliveryTask,
+  DeliveryTaskStatus,
+  Money,
+  MvpMetrics,
+  Order,
+  OrderItemStatus,
+  OrderStatus,
+  Payment,
+  PaymentStatus,
+  PickingTask,
   Product,
   ProductAvailability,
   ProductPrice,
-  DeliveryTask,
-  DeliveryTaskStatus,
-  Order,
-  OrderItemStatus,
-  RealtimeEvent,
+  ProductUnit,
+  PushPlatform,
+  Refund,
   RequestOtpResult,
+  StaffProfile,
+  UserRole,
 } from "@altyn-market/domain";
+import {
+  PaymentNotFound,
+  RefundNotAllowed,
+  RpcBackendFailure,
+  RpcUnauthorized,
+} from "@altyn-market/domain";
+import { Effect, ManagedRuntime } from "effect";
+import {
+  AltynMarketRpcClient,
+  makeAltynMarketRpcClientLayer,
+} from "./effect-rpc.js";
 
-export interface AltynMarketClient {
-  readonly api: ApiContract;
-  readonly realtime: RealtimeClient;
-}
+export * from "./effect-rpc.js";
 
-export interface RealtimeClient {
-  readonly connect: () => Promise<void>;
-  readonly close: () => void;
-  readonly onEvent: (handler: (event: RealtimeEvent) => void) => () => void;
-}
-
-export interface ClientConfig {
-  readonly apiBaseUrl: string;
-  readonly realtimeUrl: string;
-  readonly getAccessToken: () => Promise<string | undefined>;
-}
-
-export const createClientConfig = (input: ClientConfig): ClientConfig => input;
-
-export interface SessionStore {
-  readonly getAccessToken: () => Promise<string | undefined>;
-  readonly setTokens: (tokens: {
-    readonly accessToken: string;
-    readonly refreshToken: string;
-  }) => Promise<void>;
-  readonly clear: () => Promise<void>;
-}
+export type { PushPlatform };
 
 export interface AuthClient {
   readonly requestOtp: (phone: string) => Promise<RequestOtpResult>;
@@ -88,8 +84,6 @@ export interface CustomerCheckoutAddress {
 
 export type CustomerPaymentMethod = "kaspi" | "card";
 
-export type PushPlatform = "ios" | "android" | "web" | "unknown";
-
 export interface PushRegistration {
   readonly token: string;
   readonly platform: PushPlatform;
@@ -115,52 +109,7 @@ export interface CustomerAppClient {
   ) => Promise<PushRegistration>;
 }
 
-export type MockOrderItemStatus = "selected" | "confirmed" | "cancelled";
-
-export interface MockOrderItem {
-  readonly id: string;
-  readonly productId: string;
-  readonly name: string;
-  readonly quantity: number;
-  readonly unit: string;
-  readonly price: number;
-  readonly status: MockOrderItemStatus;
-}
-
-export type MockOrderStatus =
-  | "payment_authorized"
-  | "picking"
-  | "ready_for_delivery";
-
-export interface MockOrder {
-  readonly id: string;
-  readonly status: MockOrderStatus;
-  readonly statusLabel: string;
-  readonly placedAt: string;
-  readonly paymentStatus: string;
-  readonly deliveryStatus: string;
-  readonly address: string;
-  readonly deliveryFee: number;
-  readonly providerPaymentId: string;
-  readonly items: readonly MockOrderItem[];
-}
-
-export interface MockOrdersClient {
-  readonly createOrder: (input: {
-    readonly providerPaymentId: string;
-    readonly address: string;
-    readonly deliveryFee: number;
-    readonly items: readonly Omit<MockOrderItem, "status">[];
-  }) => Promise<MockOrder>;
-  readonly listOrders: () => Promise<readonly MockOrder[]>;
-  readonly startPicking: (orderId: string) => Promise<MockOrder>;
-  readonly updateItemStatus: (input: {
-    readonly orderId: string;
-    readonly itemId: string;
-    readonly status: MockOrderItemStatus;
-  }) => Promise<MockOrder>;
-  readonly completePicking: (orderId: string) => Promise<MockOrder>;
-}
+export type PickingTaskAssignment = PickingTask;
 
 export interface StaffOperationsClient {
   readonly listPickingTasks: () => Promise<readonly PickingTaskAssignment[]>;
@@ -184,188 +133,129 @@ export interface StaffOperationsClient {
   }) => Promise<DeliveryTask>;
 }
 
-export type PickingTaskAssignment = ApiContract["picking"] extends {
-  readonly listAssignedTasks: () => Promise<infer T>;
+export interface AdminCatalogProduct {
+  readonly product: Product;
+  readonly price: ProductPrice;
+  readonly availability: ProductAvailability;
 }
-  ? T extends readonly (infer Task)[]
-    ? Task
-    : never
-  : never;
 
-export const createAuthClient = (apiBaseUrl: string): AuthClient => ({
-  requestOtp: (phone) =>
-    postJson<RequestOtpResult>(apiBaseUrl, "/api/auth/request-otp", { phone }),
-  verifyOtp: (input) =>
-    postJson<AuthSession>(apiBaseUrl, "/api/auth/verify-otp", input),
-  refreshSession: (input) =>
-    postJson<AuthSession>(apiBaseUrl, "/api/auth/refresh", input),
-  getCurrentSession: (accessToken) =>
-    getJson<AuthSession>(apiBaseUrl, "/api/auth/me", accessToken),
-});
+export interface AdminAuditLogEntry {
+  readonly id: string;
+  readonly actorUserId: string;
+  readonly action: string;
+  readonly entityType: string;
+  readonly entityId: string;
+  readonly metadata?: Record<string, unknown>;
+  readonly createdAt: string;
+}
 
-export const createCustomerAppClient = (
-  apiBaseUrl: string,
-  getAccessToken: () => string | undefined,
-): CustomerAppClient => ({
-  listCategories: async () => {
-    const result = await getPublicJson<{
-      readonly categories: readonly Category[];
-    }>(apiBaseUrl, "/api/catalog/categories");
-    return result.categories;
-  },
-  listProducts: async () => {
-    const result = await getPublicJson<{
-      readonly products: readonly Product[];
-    }>(apiBaseUrl, "/api/catalog/products");
+export type StaffRole = Exclude<UserRole, "customer">;
 
-    const products = result.products.filter((product) => product.isActive);
-    return Promise.all(
-      products.map(async (product) => ({
-        product,
-        price: await getPublicJson<ProductPrice>(
-          apiBaseUrl,
-          `/api/catalog/products/${encodeURIComponent(product.id)}/price`,
-        ),
-      })),
-    );
-  },
-  getCart: () =>
-    getAuthorizedJson<CustomerCartSnapshot>(
-      apiBaseUrl,
-      "/api/cart",
-      requireAccessToken(getAccessToken),
-    ),
-  setCartItemQuantity: (productId, quantity) =>
-    postAuthorizedJson<CustomerCartSnapshot>(
-      apiBaseUrl,
-      "/api/cart/items",
-      { productId, quantity },
-      requireAccessToken(getAccessToken),
-    ),
-  removeCartItem: (productId) =>
-    deleteAuthorizedJson<CustomerCartSnapshot>(
-      apiBaseUrl,
-      `/api/cart/items/${encodeURIComponent(productId)}`,
-      requireAccessToken(getAccessToken),
-    ),
-  checkout: ({ address, paymentMethod }) =>
-    postAuthorizedJson<CheckoutResult>(
-      apiBaseUrl,
-      "/api/checkout",
-      { address, paymentMethod },
-      requireAccessToken(getAccessToken),
-    ),
-  listOrders: async () => {
-    const result = await getAuthorizedJson<{
-      readonly orders: readonly Order[];
-    }>(apiBaseUrl, "/api/orders", requireAccessToken(getAccessToken));
-    return result.orders;
-  },
-  getOrder: (orderId) =>
-    getAuthorizedJson<Order>(
-      apiBaseUrl,
-      `/api/orders/${encodeURIComponent(orderId)}`,
-      requireAccessToken(getAccessToken),
-    ),
-  registerPushToken: (input) =>
-    postAuthorizedJson<PushRegistration>(
-      apiBaseUrl,
-      "/api/notifications/push-token",
-      input,
-      requireAccessToken(getAccessToken),
-    ),
-});
+export interface AdminCategoryDraft {
+  readonly name: string;
+  readonly slug: string;
+  readonly sortOrder: number;
+  readonly isActive: boolean;
+}
 
-export const createMockOrdersClient = (
-  apiBaseUrl: string,
-): MockOrdersClient => ({
-  createOrder: (input) =>
-    postJson<MockOrder>(apiBaseUrl, "/api/mock/orders", input),
-  listOrders: async () => {
-    const result = await getPublicJson<{
-      readonly orders: readonly MockOrder[];
-    }>(apiBaseUrl, "/api/mock/orders");
-    return result.orders;
-  },
-  startPicking: (orderId) =>
-    postJson<MockOrder>(
-      apiBaseUrl,
-      `/api/mock/orders/${encodeURIComponent(orderId)}/start-picking`,
-      {},
-    ),
-  updateItemStatus: (input) =>
-    postJson<MockOrder>(
-      apiBaseUrl,
-      `/api/mock/orders/${encodeURIComponent(input.orderId)}/items/${encodeURIComponent(input.itemId)}/status`,
-      { status: input.status },
-    ),
-  completePicking: (orderId) =>
-    postJson<MockOrder>(
-      apiBaseUrl,
-      `/api/mock/orders/${encodeURIComponent(orderId)}/complete-picking`,
-      {},
-    ),
-});
+export interface AdminCategoryPatch {
+  readonly name?: string;
+  readonly slug?: string;
+  readonly sortOrder?: number;
+  readonly isActive?: boolean;
+}
 
-export const createStaffOperationsClient = (
-  apiBaseUrl: string,
-  getAccessToken: () => string | undefined,
-): StaffOperationsClient => ({
-  listPickingTasks: async () => {
-    const result = await getAuthorizedJson<{
-      readonly tasks: readonly PickingTaskAssignment[];
-    }>(apiBaseUrl, "/api/picking/tasks", requireAccessToken(getAccessToken));
-    return result.tasks;
-  },
-  getOrder: (orderId) =>
-    getAuthorizedJson<Order>(
-      apiBaseUrl,
-      `/api/orders/${encodeURIComponent(orderId)}`,
-      requireAccessToken(getAccessToken),
-    ),
-  startPicking: (orderId) =>
-    postAuthorizedJson<Order>(
-      apiBaseUrl,
-      `/api/picking/orders/${encodeURIComponent(orderId)}/start`,
-      {},
-      requireAccessToken(getAccessToken),
-    ),
-  updatePickingItem: (input) =>
-    postAuthorizedJson<Order>(
-      apiBaseUrl,
-      `/api/picking/orders/${encodeURIComponent(input.orderId)}/items/${encodeURIComponent(input.itemId)}`,
-      {
-        status: input.status,
-        ...(input.pickedQuantity === undefined
-          ? {}
-          : { pickedQuantity: input.pickedQuantity }),
-        ...(input.reason ? { reason: input.reason } : {}),
-      },
-      requireAccessToken(getAccessToken),
-    ),
-  completePicking: (orderId) =>
-    postAuthorizedJson<Order>(
-      apiBaseUrl,
-      `/api/picking/orders/${encodeURIComponent(orderId)}/complete`,
-      {},
-      requireAccessToken(getAccessToken),
-    ),
-  listDeliveryTasks: async () => {
-    const result = await getAuthorizedJson<{
-      readonly tasks: readonly DeliveryTask[];
-    }>(apiBaseUrl, "/api/delivery/tasks", requireAccessToken(getAccessToken));
-    return result.tasks;
-  },
-  updateDeliveryStatus: (input) =>
-    postAuthorizedJson<DeliveryTask>(
-      apiBaseUrl,
-      `/api/delivery/orders/${encodeURIComponent(input.orderId)}/status`,
-      { status: input.status },
-      requireAccessToken(getAccessToken),
-    ),
-});
+export interface AdminProductDraft {
+  readonly categoryId: string;
+  readonly name: string;
+  readonly description?: string;
+  readonly unit: ProductUnit;
+  readonly imageUrl?: string;
+  readonly isActive: boolean;
+  readonly customerPrice: Money;
+  readonly internalCost?: Money;
+  readonly isAvailable: boolean;
+  readonly availabilityNote?: string;
+}
 
-class ApiError extends Error {
+export interface AdminProductPatch {
+  readonly categoryId?: string;
+  readonly name?: string;
+  readonly description?: string;
+  readonly unit?: ProductUnit;
+  readonly imageUrl?: string;
+  readonly isActive?: boolean;
+}
+
+export interface AdminOperationsClient {
+  readonly listOrders: (status?: OrderStatus) => Promise<readonly Order[]>;
+  readonly listCategories: () => Promise<readonly Category[]>;
+  readonly listProducts: () => Promise<readonly AdminCatalogProduct[]>;
+  readonly createCategory: (input: AdminCategoryDraft) => Promise<Category>;
+  readonly updateCategory: (
+    categoryId: string,
+    input: AdminCategoryPatch,
+  ) => Promise<Category>;
+  readonly deleteCategory: (categoryId: string) => Promise<Category>;
+  readonly createProduct: (
+    input: AdminProductDraft,
+  ) => Promise<AdminCatalogProduct>;
+  readonly updateProduct: (
+    productId: string,
+    input: AdminProductPatch,
+  ) => Promise<AdminCatalogProduct>;
+  readonly deleteProduct: (productId: string) => Promise<void>;
+  readonly updateProductAvailability: (
+    productId: string,
+    input: { readonly isAvailable: boolean; readonly note?: string },
+  ) => Promise<ProductAvailability>;
+  readonly updateProductPrice: (
+    productId: string,
+    input: {
+      readonly customerPrice: Money;
+      readonly internalCost?: Money;
+      readonly effectiveFrom?: string;
+    },
+  ) => Promise<ProductPrice>;
+  readonly listProductPriceHistory: (
+    productId: string,
+  ) => Promise<readonly ProductPrice[]>;
+  readonly assignPicker: (
+    orderId: string,
+    pickerId: string,
+  ) => Promise<PickingTask>;
+  readonly assignCourier: (
+    orderId: string,
+    courierId: string,
+  ) => Promise<DeliveryTask>;
+  readonly createStaffProfile: (input: {
+    readonly phone: string;
+    readonly displayName: string;
+    readonly roles: readonly StaffRole[];
+  }) => Promise<StaffProfile>;
+  readonly listStaffProfiles: () => Promise<readonly StaffProfile[]>;
+  readonly deactivateStaffProfile: (staffId: string) => Promise<void>;
+  readonly listPayments: () => Promise<readonly Payment[]>;
+  readonly listRefunds: () => Promise<readonly Refund[]>;
+  readonly refundPayment: (input: {
+    readonly paymentId: string;
+    readonly amount: Money;
+    readonly reason: string;
+  }) => Promise<Refund>;
+  readonly updatePaymentStatus: (input: {
+    readonly paymentId: string;
+    readonly status: PaymentStatus;
+  }) => Promise<Payment>;
+  readonly listAuditLog: (
+    limit?: number,
+  ) => Promise<readonly AdminAuditLogEntry[]>;
+  readonly getMetrics: () => Promise<MvpMetrics>;
+  readonly uploadProductImage: (
+    dataBase64: string,
+  ) => Promise<{ readonly url: string }>;
+}
+
+export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
@@ -374,106 +264,345 @@ class ApiError extends Error {
   }
 }
 
-const postJson = async <T>(
+type RpcClientService = AltynMarketRpcClient["Service"];
+
+type RpcCall = <A, E>(
+  work: (client: RpcClientService) => Effect.Effect<A, E>,
+) => Promise<A>;
+
+const createRpcCaller = (
   apiBaseUrl: string,
-  path: string,
-  body: unknown,
-): Promise<T> => {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  return parseJsonResponse<T>(response);
-};
-
-const getJson = async <T>(
-  apiBaseUrl: string,
-  path: string,
-  accessToken: string,
-): Promise<T> => {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  return parseJsonResponse<T>(response);
-};
-
-const postAuthorizedJson = async <T>(
-  apiBaseUrl: string,
-  path: string,
-  body: unknown,
-  accessToken: string,
-): Promise<T> => {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-
-  return parseJsonResponse<T>(response);
-};
-
-const getAuthorizedJson = async <T>(
-  apiBaseUrl: string,
-  path: string,
-  accessToken: string,
-): Promise<T> => {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  return parseJsonResponse<T>(response);
-};
-
-const deleteAuthorizedJson = async <T>(
-  apiBaseUrl: string,
-  path: string,
-  accessToken: string,
-): Promise<T> => {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  return parseJsonResponse<T>(response);
-};
-
-const getPublicJson = async <T>(
-  apiBaseUrl: string,
-  path: string,
-): Promise<T> => {
-  const response = await fetch(`${apiBaseUrl}${path}`, { method: "GET" });
-
-  return parseJsonResponse<T>(response);
-};
-
-const parseJsonResponse = async <T>(response: Response): Promise<T> => {
-  const body = (await response.json().catch(() => ({}))) as {
-    readonly error?: string;
-  };
-
-  if (!response.ok) {
-    throw new ApiError(body.error ?? "Request failed.", response.status);
-  }
-
-  return body as T;
-};
-
-const requireAccessToken = (
   getAccessToken: () => string | undefined,
-): string => {
-  const accessToken = getAccessToken();
+): RpcCall => {
+  const runtime = ManagedRuntime.make(
+    makeAltynMarketRpcClientLayer({
+      rpcUrl: `${apiBaseUrl}/rpc`,
+      accessToken: { getAccessToken: async () => getAccessToken() },
+    }),
+  );
 
-  if (!accessToken) {
-    throw new ApiError("Staff session expired. Sign in again.", 401);
+  return async (work) => {
+    try {
+      return await runtime.runPromise(
+        Effect.gen(function* () {
+          const client = yield* AltynMarketRpcClient;
+          return yield* work(client);
+        }),
+      );
+    } catch (cause) {
+      throw toApiError(cause);
+    }
+  };
+};
+
+const toApiError = (cause: unknown): ApiError => {
+  if (cause instanceof RpcBackendFailure) {
+    return new ApiError(cause.message, statusFromCode(cause.code));
   }
 
-  return accessToken;
+  if (cause instanceof RpcUnauthorized) {
+    return new ApiError(cause.message, 401);
+  }
+
+  if (cause instanceof PaymentNotFound) {
+    return new ApiError("Payment not found.", 404);
+  }
+
+  if (cause instanceof RefundNotAllowed) {
+    return new ApiError(cause.message, 409);
+  }
+
+  if (cause instanceof Error) {
+    return new ApiError(cause.message, 0);
+  }
+
+  return new ApiError("Request failed.", 0);
 };
+
+const statusFromCode = (code: string): number => {
+  const match = /^(?:API|AUTH)_(\d{3})$/.exec(code);
+  return match?.[1] ? Number(match[1]) : 500;
+};
+
+const asDomain = <T>(value: unknown): T => value as T;
+
+export const createAuthClient = (apiBaseUrl: string): AuthClient => {
+  let sessionToken: string | undefined;
+  const call = createRpcCaller(apiBaseUrl, () => sessionToken);
+
+  return {
+    requestOtp: (phone) =>
+      call((client) => client.RequestOtp({ phone: { e164: phone } })).then(
+        asDomain<RequestOtpResult>,
+      ),
+    verifyOtp: ({ phone, code, deviceName }) =>
+      call((client) =>
+        client.VerifyOtp({
+          phone: { e164: phone },
+          code,
+          ...(deviceName === undefined ? {} : { deviceName }),
+        }),
+      ).then(asDomain<AuthSession>),
+    refreshSession: ({ refreshToken, deviceName }) =>
+      call((client) =>
+        client.RefreshSession({
+          refreshToken,
+          ...(deviceName === undefined ? {} : { deviceName }),
+        }),
+      ).then(asDomain<AuthSession>),
+    getCurrentSession: (accessToken) => {
+      sessionToken = accessToken;
+      return call((client) => client.GetCurrentSession()).then(
+        asDomain<AuthSession>,
+      );
+    },
+  };
+};
+
+export const createCustomerAppClient = (
+  apiBaseUrl: string,
+  getAccessToken: () => string | undefined,
+): CustomerAppClient => {
+  const call = createRpcCaller(apiBaseUrl, getAccessToken);
+
+  return {
+    listCategories: () =>
+      call((client) => client.ListCategories()).then(
+        asDomain<readonly Category[]>,
+      ),
+    listProducts: async () => {
+      const catalog = await call((client) => client.ListCatalog());
+      return asDomain<readonly CustomerCatalogProduct[]>(
+        catalog.filter((entry) => entry.product.isActive),
+      );
+    },
+    getCart: () =>
+      call((client) => client.GetCart()).then(asDomain<CustomerCartSnapshot>),
+    setCartItemQuantity: (productId, quantity) =>
+      call((client) => client.AddCartItem({ productId, quantity })).then(
+        asDomain<CustomerCartSnapshot>,
+      ),
+    removeCartItem: (productId) =>
+      call((client) => client.RemoveCartItem({ productId })).then(
+        asDomain<CustomerCartSnapshot>,
+      ),
+    checkout: ({ address }) =>
+      call((client) =>
+        client.Checkout({ address: toAddressPayload(address) }),
+      ).then(asDomain<CheckoutResult>),
+    listOrders: () =>
+      call((client) => client.ListMyOrders()).then(asDomain<readonly Order[]>),
+    getOrder: (orderId) =>
+      call((client) => client.GetOrder({ orderId })).then(asDomain<Order>),
+    registerPushToken: async (input) => {
+      const subscription = await call((client) =>
+        client.RegisterPushToken(input),
+      );
+      return { token: subscription.token, platform: subscription.platform };
+    },
+  };
+};
+
+export const createStaffOperationsClient = (
+  apiBaseUrl: string,
+  getAccessToken: () => string | undefined,
+): StaffOperationsClient => {
+  const call = createRpcCaller(apiBaseUrl, getAccessToken);
+
+  return {
+    listPickingTasks: () =>
+      call((client) => client.ListPickingTasks()).then(
+        asDomain<readonly PickingTask[]>,
+      ),
+    getOrder: (orderId) =>
+      call((client) => client.GetOrder({ orderId })).then(asDomain<Order>),
+    startPicking: (orderId) =>
+      call((client) => client.StartPicking({ orderId })).then(asDomain<Order>),
+    updatePickingItem: (input) =>
+      call((client) =>
+        client.UpdatePickingItem({
+          orderId: input.orderId,
+          itemId: input.itemId,
+          status: input.status,
+          ...(input.pickedQuantity === undefined
+            ? {}
+            : { pickedQuantity: input.pickedQuantity }),
+          ...(input.reason === undefined ? {} : { reason: input.reason }),
+        }),
+      ).then(asDomain<Order>),
+    completePicking: (orderId) =>
+      call((client) => client.CompletePicking({ orderId })).then(
+        asDomain<Order>,
+      ),
+    listDeliveryTasks: () =>
+      call((client) => client.ListDeliveryTasks()).then(
+        asDomain<readonly DeliveryTask[]>,
+      ),
+    updateDeliveryStatus: (input) =>
+      call((client) => client.UpdateDeliveryStatus(input)).then(
+        asDomain<DeliveryTask>,
+      ),
+  };
+};
+
+export const createAdminOperationsClient = (
+  apiBaseUrl: string,
+  getAccessToken: () => string | undefined,
+): AdminOperationsClient => {
+  const call = createRpcCaller(apiBaseUrl, getAccessToken);
+
+  return {
+    listOrders: (status) =>
+      call((client) =>
+        client.ListAdminOrders(status === undefined ? {} : { status }),
+      ).then(asDomain<readonly Order[]>),
+    listCategories: () =>
+      call((client) => client.ListAdminCategories()).then(
+        asDomain<readonly Category[]>,
+      ),
+    listProducts: () =>
+      call((client) => client.ListAdminProducts()).then(
+        asDomain<readonly AdminCatalogProduct[]>,
+      ),
+    createCategory: (input) =>
+      call((client) => client.CreateCategory(input)).then(asDomain<Category>),
+    updateCategory: (categoryId, input) =>
+      call((client) =>
+        client.UpdateCategory({
+          categoryId,
+          ...(input.name === undefined ? {} : { name: input.name }),
+          ...(input.slug === undefined ? {} : { slug: input.slug }),
+          ...(input.sortOrder === undefined
+            ? {}
+            : { sortOrder: input.sortOrder }),
+          ...(input.isActive === undefined ? {} : { isActive: input.isActive }),
+        }),
+      ).then(asDomain<Category>),
+    deleteCategory: (categoryId) =>
+      call((client) => client.DeleteCategory({ categoryId })).then(
+        asDomain<Category>,
+      ),
+    createProduct: (input) =>
+      call((client) =>
+        client.CreateProduct({
+          categoryId: input.categoryId,
+          name: input.name,
+          unit: input.unit,
+          isActive: input.isActive,
+          customerPrice: input.customerPrice,
+          isAvailable: input.isAvailable,
+          ...(input.description === undefined
+            ? {}
+            : { description: input.description }),
+          ...(input.imageUrl === undefined ? {} : { imageUrl: input.imageUrl }),
+          ...(input.internalCost === undefined
+            ? {}
+            : { internalCost: input.internalCost }),
+          ...(input.availabilityNote === undefined
+            ? {}
+            : { availabilityNote: input.availabilityNote }),
+        }),
+      ).then(asDomain<AdminCatalogProduct>),
+    updateProduct: (productId, input) =>
+      call((client) =>
+        client.UpdateProduct({
+          productId,
+          ...(input.categoryId === undefined
+            ? {}
+            : { categoryId: input.categoryId }),
+          ...(input.name === undefined ? {} : { name: input.name }),
+          ...(input.description === undefined
+            ? {}
+            : { description: input.description }),
+          ...(input.unit === undefined ? {} : { unit: input.unit }),
+          ...(input.imageUrl === undefined ? {} : { imageUrl: input.imageUrl }),
+          ...(input.isActive === undefined ? {} : { isActive: input.isActive }),
+        }),
+      ).then(asDomain<AdminCatalogProduct>),
+    deleteProduct: (productId) =>
+      call((client) => client.DeleteProduct({ productId })).then(() => {}),
+    updateProductAvailability: (productId, input) =>
+      call((client) =>
+        client.UpdateProductAvailability({
+          productId,
+          isAvailable: input.isAvailable,
+          ...(input.note === undefined ? {} : { note: input.note }),
+        }),
+      ).then(asDomain<ProductAvailability>),
+    updateProductPrice: (productId, input) =>
+      call((client) =>
+        client.UpdateProductPrice({
+          productId,
+          customerPrice: input.customerPrice,
+          ...(input.internalCost === undefined
+            ? {}
+            : { internalCost: input.internalCost }),
+          ...(input.effectiveFrom === undefined
+            ? {}
+            : { effectiveFrom: input.effectiveFrom }),
+        }),
+      ).then(asDomain<ProductPrice>),
+    listProductPriceHistory: (productId) =>
+      call((client) => client.ListProductPriceHistory({ productId })).then(
+        asDomain<readonly ProductPrice[]>,
+      ),
+    assignPicker: (orderId, pickerId) =>
+      call((client) => client.AssignPicker({ orderId, pickerId })).then(
+        asDomain<PickingTask>,
+      ),
+    assignCourier: (orderId, courierId) =>
+      call((client) => client.AssignCourier({ orderId, courierId })).then(
+        asDomain<DeliveryTask>,
+      ),
+    createStaffProfile: (input) =>
+      call((client) =>
+        client.CreateStaffProfile({
+          phone: { e164: input.phone },
+          displayName: input.displayName,
+          roles: input.roles,
+        }),
+      ).then(asDomain<StaffProfile>),
+    listStaffProfiles: () =>
+      call((client) => client.ListStaffProfiles()).then(
+        asDomain<readonly StaffProfile[]>,
+      ),
+    deactivateStaffProfile: (staffId) =>
+      call((client) => client.DeactivateStaffProfile({ staffId })).then(
+        () => {},
+      ),
+    listPayments: () =>
+      call((client) => client.ListAdminPayments()).then(
+        asDomain<readonly Payment[]>,
+      ),
+    listRefunds: () =>
+      call((client) => client.ListAdminRefunds()).then(
+        asDomain<readonly Refund[]>,
+      ),
+    refundPayment: (input) =>
+      call((client) => client.RefundPayment(input)).then(asDomain<Refund>),
+    updatePaymentStatus: (input) =>
+      call((client) => client.UpdatePaymentStatus(input)).then(
+        asDomain<Payment>,
+      ),
+    listAuditLog: (limit) =>
+      call((client) =>
+        client.ListAuditLog(limit === undefined ? {} : { limit }),
+      ).then(asDomain<readonly AdminAuditLogEntry[]>),
+    getMetrics: () =>
+      call((client) => client.GetMetrics()).then(asDomain<MvpMetrics>),
+    uploadProductImage: (dataBase64) =>
+      call((client) => client.UploadProductImage({ dataBase64 })),
+  };
+};
+
+const toAddressPayload = (address: CustomerCheckoutAddress) => ({
+  city: address.city,
+  street: address.street,
+  ...(address.label === undefined ? {} : { label: address.label }),
+  ...(address.apartment === undefined ? {} : { apartment: address.apartment }),
+  ...(address.entrance === undefined ? {} : { entrance: address.entrance }),
+  ...(address.floor === undefined ? {} : { floor: address.floor }),
+  ...(address.comment === undefined ? {} : { comment: address.comment }),
+  ...(address.latitude === undefined ? {} : { latitude: address.latitude }),
+  ...(address.longitude === undefined ? {} : { longitude: address.longitude }),
+});

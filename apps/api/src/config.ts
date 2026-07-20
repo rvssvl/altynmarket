@@ -38,7 +38,9 @@ export const readAppConfig = (
 export const readSecretConfig = (
   env: Record<string, string | undefined>,
 ): SecretConfig => ({
-  databaseUrl: env.DATABASE_URL ?? "",
+  databaseUrl: isPostgresConnectionUrl(env.DATABASE_URL)
+    ? env.DATABASE_URL
+    : "",
   jwtAccessSecret: env.JWT_ACCESS_SECRET ?? "",
   jwtRefreshSecret: env.JWT_REFRESH_SECRET ?? "",
   paymentProvider:
@@ -58,3 +60,6 @@ export const readSecretConfig = (
     ? { bootstrapAdminPhone: env.BOOTSTRAP_ADMIN_PHONE }
     : {}),
 });
+
+const isPostgresConnectionUrl = (value: string | undefined): value is string =>
+  Boolean(value && /^postgres(?:ql)?:\/\//i.test(value));

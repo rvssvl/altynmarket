@@ -15,6 +15,11 @@ import type {
   StaffProfile,
   UserRole,
 } from "@altyn-market/domain";
+import {
+  createAdminOperationsClient,
+  createAuthClient,
+  createStaffOperationsClient,
+} from "@altyn-market/client";
 import { adminRoutes, type AdminModule } from "./modules.js";
 
 type BackendState = "checking" | "online" | "offline";
@@ -68,6 +73,16 @@ interface CatalogDeleteTarget {
 let activeModule: AdminModule = "orders";
 let backendState: BackendState = "checking";
 let session: AuthSession | undefined = readStoredSession();
+
+const authClient = createAuthClient(apiBaseUrl);
+const adminClient = createAdminOperationsClient(
+  apiBaseUrl,
+  () => session?.accessToken,
+);
+const staffOperationsClient = createStaffOperationsClient(
+  apiBaseUrl,
+  () => session?.accessToken,
+);
 let loading = false;
 let errorMessage: string | undefined;
 let successMessage: string | undefined;
@@ -2401,10 +2416,11 @@ async function handleClick(event: Event): Promise<void> {
     await runAction(
       t(target.kind === "product" ? "Product deleted." : "Category deleted."),
       async () => {
-        await apiSend(
-          `/api/admin/catalog/${target.kind === "product" ? "products" : "categories"}/${target.id}`,
-          { method: "DELETE" },
-        );
+        if (target.kind === "product") {
+          await adminClient.deleteProduct(target.id);
+        } else {
+          await adminClient.deleteCategory(target.id);
+        }
         catalogDeleteTarget = undefined;
         await refreshData(false);
       },
@@ -2414,9 +2430,8 @@ async function handleClick(event: Event): Promise<void> {
 
   if (action === "toggle-product-active" && button.dataset.productId) {
     await runAction("Product updated.", async () => {
-      await apiSend(`/api/admin/catalog/products/${button.dataset.productId}`, {
-        method: "PATCH",
-        body: { isActive: button.dataset.active === "1" },
+      await adminClient.updateProduct(button.dataset.productId ?? "", {
+        isActive: button.dataset.active === "1",
       });
       await refreshData(false);
     });
@@ -2425,13 +2440,9 @@ async function handleClick(event: Event): Promise<void> {
 
   if (action === "toggle-category-active" && button.dataset.categoryId) {
     await runAction("Category updated.", async () => {
-      await apiSend(
-        `/api/admin/catalog/categories/${button.dataset.categoryId}`,
-        {
-          method: "PATCH",
-          body: { isActive: button.dataset.active === "1" },
-        },
-      );
+      await adminClient.updateCategory(button.dataset.categoryId ?? "", {
+        isActive: button.dataset.active === "1",
+      });
       await refreshData(false);
     });
     return;
@@ -2444,9 +2455,7 @@ async function handleClick(event: Event): Promise<void> {
 
   if (action === "deactivate-staff" && button.dataset.staffId) {
     await runAction("Staff deactivated.", async () => {
-      await apiSend(`/api/admin/staff/${button.dataset.staffId}/deactivate`, {
-        method: "POST",
-      });
+      await adminClient.deactivateStaffProfile(button.dataset.staffId ?? "");
       await refreshData(false);
     });
   }
@@ -2600,12 +2609,8 @@ async function uploadProductImage(
     throw new Error(t("Choose a PNG, JPEG or WebP image up to 5 MB."));
   }
 
-  const result = await apiSend<{ readonly url: string }>(
-    "/api/admin/uploads/product-images",
-    {
-      method: "POST",
-      body: { dataBase64: await readFileAsBase64(file) },
-    },
+  const result = await adminClient.uploadProductImage(
+    await readFileAsBase64(file),
   );
   return result.url;
 }
@@ -2632,14 +2637,7 @@ const readFileAsBase64 = async (file: File): Promise<string> =>
 async function requestOtp(form: HTMLFormElement): Promise<void> {
   await runAction("Code requested.", async () => {
     pendingPhone = formText(form, "phone");
-    const result = await apiSend<{ readonly devCode?: string }>(
-      "/api/auth/request-otp",
-      {
-        method: "POST",
-        body: { phone: pendingPhone },
-        auth: false,
-      },
-    );
+    const result = await authClient.requestOtp(pendingPhone);
     devOtp = result.devCode;
     authStep = "code";
   });
@@ -2647,14 +2645,10 @@ async function requestOtp(form: HTMLFormElement): Promise<void> {
 
 async function verifyOtp(form: HTMLFormElement): Promise<void> {
   await runAction("Signed in.", async () => {
-    const nextSession = await apiSend<AuthSession>("/api/auth/verify-otp", {
-      method: "POST",
-      body: {
-        phone: pendingPhone,
-        code: formText(form, "code"),
-        deviceName: "Altyn Market Admin",
-      },
-      auth: false,
+    const nextSession = await authClient.verifyOtp({
+      phone: pendingPhone,
+      code: formText(form, "code"),
+      deviceName: "Altyn Market Admin",
     });
     session = nextSession;
     storeSession(nextSession);
@@ -2678,18 +2672,9 @@ async function saveCategory(
         isActive: formCheckbox(form, "isActive"),
       };
       if (isEditing) {
-        await apiSend(
-          `/api/admin/catalog/categories/${formText(form, "categoryId")}`,
-          {
-            method: "PATCH",
-            body,
-          },
-        );
+        await adminClient.updateCategory(formText(form, "categoryId"), body);
       } else {
-        await apiSend("/api/admin/catalog/categories", {
-          method: "POST",
-          body,
-        });
+        await adminClient.createCategory(body);
       }
       editingCategoryId = undefined;
       catalogModal = undefined;
@@ -2706,41 +2691,44 @@ async function saveProduct(
     isEditing ? "Product saved." : "Product created.",
     async () => {
       const uploadedImageUrl = await uploadProductImage(form);
+      const availabilityNote = formOptionalText(form, "availabilityNote");
       const availability = {
         isAvailable: formCheckbox(form, "isAvailable"),
-        note: formOptionalText(form, "availabilityNote"),
+        ...(availabilityNote === undefined ? {} : { note: availabilityNote }),
       };
+      const description = formOptionalText(form, "description");
+      const imageUrl = uploadedImageUrl ?? formOptionalText(form, "imageUrl");
       const productBody = {
         name: formText(form, "name"),
         categoryId: formText(form, "categoryId"),
-        unit: formText(form, "unit"),
-        description: formOptionalText(form, "description"),
-        imageUrl: uploadedImageUrl ?? formOptionalText(form, "imageUrl"),
+        unit: formText(form, "unit") as ProductUnit,
         isActive: formCheckbox(form, "isActive"),
-        ...(!isEditing
-          ? {
-              customerPriceMinor: formMoneyMinor(form, "customerPrice"),
-              internalCostMinor: formOptionalMoneyMinor(form, "internalCost"),
-              isAvailable: availability.isAvailable,
-              availabilityNote: availability.note,
-            }
-          : {}),
+        ...(description === undefined ? {} : { description }),
+        ...(imageUrl === undefined ? {} : { imageUrl }),
       };
 
       if (isEditing) {
         const productId = formText(form, "productId");
-        await apiSend(`/api/admin/catalog/products/${productId}`, {
-          method: "PATCH",
-          body: productBody,
-        });
-        await apiSend(`/api/admin/catalog/products/${productId}/availability`, {
-          method: "PATCH",
-          body: availability,
-        });
+        await adminClient.updateProduct(productId, productBody);
+        await adminClient.updateProductAvailability(productId, availability);
       } else {
-        await apiSend("/api/admin/catalog/products", {
-          method: "POST",
-          body: productBody,
+        const internalCostMinor = formOptionalMoneyMinor(form, "internalCost");
+        await adminClient.createProduct({
+          ...productBody,
+          customerPrice: {
+            amountMinor: formMoneyMinor(form, "customerPrice"),
+            currency: "KZT",
+          },
+          ...(internalCostMinor === undefined
+            ? {}
+            : {
+                internalCost: {
+                  amountMinor: internalCostMinor,
+                  currency: "KZT",
+                },
+              }),
+          isAvailable: availability.isAvailable,
+          ...(availabilityNote === undefined ? {} : { availabilityNote }),
         });
       }
       editingProductId = undefined;
@@ -2753,12 +2741,17 @@ async function saveProduct(
 async function savePrice(form: HTMLFormElement): Promise<void> {
   await runAction("Price saved.", async () => {
     const productId = formText(form, "productId");
-    await apiSend(`/api/admin/pricing/products/${productId}`, {
-      method: "POST",
-      body: {
-        customerPriceMinor: formMoneyMinor(form, "customerPrice"),
-        internalCostMinor: formOptionalMoneyMinor(form, "internalCost"),
+    const internalCostMinor = formOptionalMoneyMinor(form, "internalCost");
+    await adminClient.updateProductPrice(productId, {
+      customerPrice: {
+        amountMinor: formMoneyMinor(form, "customerPrice"),
+        currency: "KZT",
       },
+      ...(internalCostMinor === undefined
+        ? {}
+        : {
+            internalCost: { amountMinor: internalCostMinor, currency: "KZT" },
+          }),
     });
     await refreshData(false);
     await loadPriceHistory(productId, false);
@@ -2772,23 +2765,22 @@ async function assignStaff(
 ): Promise<void> {
   await runAction("Assignment saved.", async () => {
     const orderId = formText(form, "orderId");
-    await apiSend(`/api/admin/orders/${orderId}/${action}`, {
-      method: "POST",
-      body: { [fieldName]: formText(form, fieldName) },
-    });
+    const staffId = formText(form, fieldName);
+    if (action === "assign-picker") {
+      await adminClient.assignPicker(orderId, staffId);
+    } else {
+      await adminClient.assignCourier(orderId, staffId);
+    }
     await refreshData(false);
   });
 }
 
 async function createStaff(form: HTMLFormElement): Promise<void> {
   await runAction("Staff account created.", async () => {
-    await apiSend("/api/admin/staff", {
-      method: "POST",
-      body: {
-        displayName: formText(form, "displayName"),
-        phone: formText(form, "phone"),
-        roles: formRoles(form),
-      },
+    await adminClient.createStaffProfile({
+      displayName: formText(form, "displayName"),
+      phone: formText(form, "phone"),
+      roles: formRoles(form),
     });
     await refreshData(false);
   });
@@ -2796,10 +2788,9 @@ async function createStaff(form: HTMLFormElement): Promise<void> {
 
 async function updatePaymentStatus(form: HTMLFormElement): Promise<void> {
   await runAction("Payment status updated.", async () => {
-    const paymentId = formText(form, "paymentId");
-    await apiSend(`/api/admin/payments/${paymentId}/status`, {
-      method: "PATCH",
-      body: { status: formText(form, "status") },
+    await adminClient.updatePaymentStatus({
+      paymentId: formText(form, "paymentId"),
+      status: formText(form, "status") as PaymentStatus,
     });
     await refreshData(false);
   });
@@ -2807,13 +2798,13 @@ async function updatePaymentStatus(form: HTMLFormElement): Promise<void> {
 
 async function createRefund(form: HTMLFormElement): Promise<void> {
   await runAction("Refund created.", async () => {
-    const paymentId = formText(form, "paymentId");
-    await apiSend(`/api/admin/payments/${paymentId}/refunds`, {
-      method: "POST",
-      body: {
+    await adminClient.refundPayment({
+      paymentId: formText(form, "paymentId"),
+      amount: {
         amountMinor: formMoneyMinor(form, "amount"),
-        reason: formText(form, "reason"),
+        currency: "KZT",
       },
+      reason: formText(form, "reason"),
     });
     await refreshData(false);
   });
@@ -2821,10 +2812,13 @@ async function createRefund(form: HTMLFormElement): Promise<void> {
 
 async function updateDeliveryStatus(form: HTMLFormElement): Promise<void> {
   await runAction("Delivery status updated.", async () => {
-    const orderId = formText(form, "orderId");
-    await apiSend(`/api/delivery/orders/${orderId}/status`, {
-      method: "POST",
-      body: { status: formText(form, "status") },
+    await staffOperationsClient.updateDeliveryStatus({
+      orderId: formText(form, "orderId"),
+      status: formText(form, "status") as
+        | "pickup_started"
+        | "picked_up"
+        | "delivering"
+        | "delivered",
     });
     await refreshData(false);
   });
@@ -2843,48 +2837,43 @@ async function refreshData(showLoading = true): Promise<void> {
 
   try {
     const [
-      ordersResult,
-      catalogResult,
-      metricsResult,
-      staffResult,
-      paymentsResult,
-      refundsResult,
-      pickingResult,
-      deliveryResult,
-      auditResult,
+      orders,
+      categories,
+      products,
+      metrics,
+      staff,
+      payments,
+      refunds,
+      pickingTasks,
+      deliveryTasks,
+      auditLog,
     ] = await Promise.all([
-      apiGet<{ readonly orders: readonly Order[] }>("/api/admin/orders"),
-      apiGet<{
-        readonly categories: readonly Category[];
-        readonly products: readonly CatalogProduct[];
-      }>("/api/admin/catalog"),
-      apiGet<MvpMetrics>("/api/admin/metrics"),
-      apiGet<{ readonly staff: readonly StaffProfile[] }>("/api/admin/staff"),
-      apiGet<{ readonly payments: readonly Payment[] }>("/api/admin/payments"),
-      apiGet<{ readonly refunds: readonly Refund[] }>("/api/admin/refunds"),
-      apiGet<{ readonly tasks: readonly PickingTask[] }>("/api/picking/tasks"),
-      apiGet<{ readonly tasks: readonly DeliveryTask[] }>(
-        "/api/delivery/tasks",
-      ),
+      adminClient.listOrders(),
+      adminClient.listCategories(),
+      adminClient.listProducts(),
+      adminClient.getMetrics(),
+      adminClient.listStaffProfiles(),
+      adminClient.listPayments(),
+      adminClient.listRefunds(),
+      staffOperationsClient.listPickingTasks(),
+      staffOperationsClient.listDeliveryTasks(),
       canAccess("super_admin")
-        ? apiGet<{ readonly entries: readonly AuditLogEntry[] }>(
-            "/api/admin/audit-log",
-          )
-        : Promise.resolve({ entries: [] }),
+        ? adminClient.listAuditLog()
+        : Promise.resolve<readonly AuditLogEntry[]>([]),
     ]);
 
     data = {
       ...data,
-      orders: ordersResult.orders,
-      categories: catalogResult.categories,
-      products: catalogResult.products,
-      metrics: metricsResult,
-      staff: staffResult.staff,
-      payments: paymentsResult.payments,
-      refunds: refundsResult.refunds,
-      pickingTasks: pickingResult.tasks,
-      deliveryTasks: deliveryResult.tasks,
-      auditLog: auditResult.entries,
+      orders,
+      categories,
+      products,
+      metrics,
+      staff,
+      payments,
+      refunds,
+      pickingTasks,
+      deliveryTasks,
+      auditLog,
     };
     selectedPriceProductId ??= data.products[0]?.product.id;
     errorMessage = undefined;
@@ -2924,7 +2913,7 @@ async function validateSession(): Promise<void> {
   }
 
   try {
-    const current = await apiGet<AuthSession>("/api/auth/me");
+    const current = await authClient.getCurrentSession(session.accessToken);
     session = {
       ...current,
       accessToken: session.accessToken,
@@ -2944,14 +2933,12 @@ async function loadPriceHistory(
     "History loaded.",
     async () => {
       selectedPriceProductId = productId;
-      const result = await apiGet<{
-        readonly history: readonly ProductPrice[];
-      }>(`/api/admin/pricing/products/${productId}/history`);
+      const history = await adminClient.listProductPriceHistory(productId);
       data = {
         ...data,
         priceHistoryByProduct: {
           ...data.priceHistoryByProduct,
-          [productId]: result.history,
+          [productId]: history,
         },
       };
     },
@@ -2979,55 +2966,6 @@ async function runAction(
     loading = false;
     render();
   }
-}
-
-async function apiGet<T>(path: string): Promise<T> {
-  return apiSend<T>(path, { method: "GET" });
-}
-
-async function apiSend<T = unknown>(
-  path: string,
-  options: {
-    readonly method: string;
-    readonly body?: unknown;
-    readonly auth?: boolean;
-  },
-): Promise<T> {
-  const headers: Record<string, string> = {};
-  if (options.body !== undefined) {
-    headers["Content-Type"] = "application/json";
-  }
-  if (options.auth !== false && session?.accessToken) {
-    headers.Authorization = `Bearer ${session.accessToken}`;
-  }
-
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    method: options.method,
-    headers,
-    ...(options.body === undefined
-      ? {}
-      : { body: JSON.stringify(options.body) }),
-  });
-  const payload = (await response.json().catch(() => ({}))) as unknown;
-
-  if (!response.ok) {
-    throw new Error(readErrorMessage(payload));
-  }
-
-  return payload as T;
-}
-
-function readErrorMessage(payload: unknown): string {
-  if (
-    payload &&
-    typeof payload === "object" &&
-    "error" in payload &&
-    typeof payload.error === "string"
-  ) {
-    return t(payload.error);
-  }
-
-  return "Request failed.";
 }
 
 function emptyData(): AdminData {

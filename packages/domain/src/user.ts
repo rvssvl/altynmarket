@@ -16,3 +16,15 @@ export interface Address {
   readonly latitude?: number;
   readonly longitude?: number;
 }
+
+export interface DeliveryAddressInput {
+  readonly label?: string;
+  readonly city: string;
+  readonly street: string;
+  readonly apartment?: string;
+  readonly entrance?: string;
+  readonly floor?: string;
+  readonly comment?: string;
+  readonly latitude?: number;
+  readonly longitude?: number;
+}

@@ -2,6 +2,7 @@ import {
   brand,
   calculateFinalTotal,
   calculateGoodsTotal,
+  type CartId,
   type Category,
   type CategoryId,
   type Customer,
@@ -18,6 +19,8 @@ import {
   type ProductId,
   type ProductPrice,
   type ProductUnit,
+  type CartLine,
+  type CartSnapshot,
   type Refund,
   type StaffProfile,
   type UserId,
@@ -25,8 +28,6 @@ import {
 import { randomUUID } from "node:crypto";
 import type {
   AuditLogRecord,
-  CartLine,
-  CartSnapshot,
   CreateSessionRecordInput,
   OtpChallengeRecord,
   ProductForSale,
@@ -48,7 +49,7 @@ interface RefreshTokenState {
 }
 
 interface CartState {
-  readonly id: string;
+  readonly id: CartId;
   readonly userId: UserId;
   readonly items: Map<string, number>;
 }
@@ -118,7 +119,7 @@ export const createInMemoryStore = (): Store => {
     }
 
     const cart: CartState = {
-      id: randomUUID(),
+      id: brand<string, "CartId">(randomUUID()),
       userId,
       items: new Map(),
     };

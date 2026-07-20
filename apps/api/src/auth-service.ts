@@ -226,6 +226,8 @@ export const createAuthService = (
 };
 
 export class AuthFailure extends Error {
+  readonly _tag = "AuthFailure";
+
   constructor(
     message: string,
     readonly status = 401,
@@ -263,4 +265,19 @@ const toAuthSession = (input: {
     roles,
     ...(input.staff ? { staff: input.staff } : {}),
   };
+};
+
+export const ensureBootstrapAdmin = async (
+  auth: AuthService,
+  phone: string | undefined,
+): Promise<void> => {
+  if (!phone) {
+    return;
+  }
+
+  await auth.createStaffProfile({
+    phone: { e164: phone },
+    displayName: "Bootstrap admin",
+    roles: ["super_admin", "admin", "picker", "courier"],
+  });
 };

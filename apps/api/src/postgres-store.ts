@@ -22,6 +22,7 @@ import {
   type ProductId,
   type ProductPrice,
   type ProductUnit,
+  type CartSnapshot,
   type Refund,
   type StaffProfile,
   type UserId,
@@ -29,7 +30,6 @@ import {
 import { randomUUID } from "node:crypto";
 import type {
   AuditLogRecord,
-  CartSnapshot,
   OtpChallengeRecord,
   ProductForSale,
   PushSubscriptionRecord,
@@ -1360,7 +1360,7 @@ const getCartSnapshot = async (
   );
 
   return {
-    id: cartId,
+    id: brand<string, "CartId">(cartId),
     userId,
     items: rows.map((row) => ({
       ...mapProductForSale(row),

@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "./src/index.ts",
+  "react-native": "./src/index.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -13,5 +15,8 @@
     "build": "tsc -b",
     "dev": "tsc -b --watch",
     "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "effect": "4.0.0-beta.90"
   }
 }

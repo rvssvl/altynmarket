@@ -1,4 +1,4 @@
-create table push_subscriptions (
+create table if not exists push_subscriptions (
   token text primary key,
   user_id uuid not null references users(id),
   platform text not null,
@@ -7,5 +7,5 @@ create table push_subscriptions (
   updated_at timestamptz not null default now()
 );
 
-create index push_subscriptions_user_enabled_idx
+create index if not exists push_subscriptions_user_enabled_idx
   on push_subscriptions(user_id, enabled);

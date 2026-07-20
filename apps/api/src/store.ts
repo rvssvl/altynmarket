@@ -2,6 +2,7 @@ import type {
   Address,
   Category,
   CategoryId,
+  CartSnapshot,
   Customer,
   DeliveryTask,
   DeliveryTaskStatus,
@@ -61,19 +62,6 @@ export interface ProductForSale {
   readonly product: Product;
   readonly price: ProductPrice;
   readonly availability: ProductAvailability;
-}
-
-export interface CartLine {
-  readonly product: Product;
-  readonly price: ProductPrice;
-  readonly availability: ProductAvailability;
-  readonly quantity: number;
-}
-
-export interface CartSnapshot {
-  readonly id: string;
-  readonly userId: UserId;
-  readonly items: readonly CartLine[];
 }
 
 export interface CreateSessionRecordInput {

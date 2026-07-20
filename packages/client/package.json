@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "./src/index.ts",
+  "react-native": "./src/index.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -15,6 +17,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@altyn-market/domain": "workspace:*"
+    "@altyn-market/domain": "workspace:*",
+    "effect": "4.0.0-beta.90"
   }
 }

@@ -41,13 +41,22 @@ Required variables:
 
 - `NODE_ENV=production`
 - `WEB_ORIGIN=https://admin.altyn-market.kz,https://altyn-market-admin-stage-production.up.railway.app`
-- `DATABASE_URL=<Railway Postgres URL, once database service is added>`
+- `DATABASE_URL=${{Postgres.DATABASE_URL}}` (required; without it the API
+  starts an in-memory demo catalog and no staff or catalog changes persist)
 - `JWT_ACCESS_SECRET=<secret>`
 - `JWT_REFRESH_SECRET=<secret>`
 - `PAYMENT_PROVIDER=mock`
 - `OTP_PROVIDER=console`
 - `PUSH_PROVIDER=console`
 - `DELIVERY_FLAT_FEE_KZT=1500`
+
+### Persistent product photos
+
+The backoffice can save a product's external `imageUrl` without additional
+storage. To use its **Upload photo** control in Railway, attach a persistent
+Railway Volume to `altyn-market-api-stage` at `/data` and set
+`UPLOAD_DIR=/data/uploads` in that service. Otherwise uploaded files are kept
+only in the API container and can disappear after a redeploy.
 
 ## Admin
 
