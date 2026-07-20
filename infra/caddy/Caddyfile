@@ -27,11 +27,8 @@
 
 {$ADMIN_DOMAIN} {
   route {
-    import staging_access
-
-    # Proxy the API through the same origin as the backoffice. HTTP Basic
-    # credentials are scoped to an origin, so a browser cannot reuse the admin
-    # password on a separate api-staging subdomain.
+    # Proxy the API through the same origin as the backoffice. Access control
+    # is the application's own phone + OTP login; there is no HTTP Basic gate.
     handle /rpc {
       encode zstd gzip
       reverse_proxy api:4000

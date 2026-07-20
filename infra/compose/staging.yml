@@ -52,9 +52,9 @@ services:
       PUBLIC_API_BASE_URL: https://${API_DOMAIN}
       PUBLIC_MEDIA_BASE_URL: https://${API_DOMAIN}
       PUBLIC_REALTIME_URL: https://${API_DOMAIN}/realtime
-      BOOTSTRAP_ADMIN_PHONE: ${BOOTSTRAP_ADMIN_PHONE:?Set BOOTSTRAP_ADMIN_PHONE in /etc/altyn-market/staging.env}
+      BOOTSTRAP_ADMIN_PHONE: "+77474150198"
       AUTH_EXPOSE_DEV_CODE: "1"
-      AUTH_DEV_OTP: ${AUTH_DEV_OTP:?Set AUTH_DEV_OTP in /etc/altyn-market/staging.env}
+      AUTH_DEV_OTP: "666999"
       OTP_PROVIDER: console
       PUSH_PROVIDER: console
       PAYMENT_PROVIDER: mock

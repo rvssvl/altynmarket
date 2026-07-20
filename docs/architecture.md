@@ -128,9 +128,11 @@ and falls back to polling. EAS build profiles: `development`, `preview`,
 - On staging OTP delivery is `console` and `AUTH_EXPOSE_DEV_CODE=1` returns
   the code (`AUTH_DEV_OTP`) in the response — real SMS delivery is not
   integrated yet.
-- Staging web surfaces sit behind an additional Caddy HTTP Basic gate
-  (`STAGING_ACCESS_*`), with a cookie so the backoffice bearer tokens still
-  work; the API domain is exempt because native apps cannot do Basic auth.
+- The staging backoffice has no extra HTTP gate: access control is the
+  phone + OTP login itself. The staging super_admin is `+77474150198` with
+  the fixed dev code `666999` (baked into `infra/compose/staging.yml`). Only
+  the staging landing preview (`$LANDING_DOMAIN`) keeps the Caddy Basic gate
+  (`STAGING_ACCESS_*`).
 
 ## 6. Integration status
 
@@ -193,7 +195,7 @@ Treat it as deprecated; decommission when convenient.
 | --- | --- | --- |
 | `altyn-market.kz`, `www.altyn-market.kz` | Public landing | Open |
 | `api-staging.altyn-market.kz` | Staging API (`/rpc`, `/realtime`, `/health`, `/uploads/*`) | Open (native apps can't pass Basic auth) |
-| `admin-staging.altyn-market.kz` | Staging backoffice; Caddy also proxies `/rpc`, `/realtime`, `/health`, `/uploads/*` to the API on the same origin | Caddy Basic gate → OTP login |
+| `admin-staging.altyn-market.kz` | Staging backoffice; Caddy also proxies `/rpc`, `/realtime`, `/health`, `/uploads/*` to the API on the same origin | OTP login (`+77474150198` / `666999`) |
 | `$LANDING_DOMAIN` (staging.env) | Staging-gated landing preview | Caddy Basic gate |
 
 DNS is managed at Hoster.kz (see `docs/railway-stage.md` for the record
