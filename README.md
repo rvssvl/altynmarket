@@ -5,6 +5,9 @@ Altyn Orda to customers in Almaty and nearby settlements.
 
 This project is intentionally separate from the existing Telegram mini app in the parent workspace.
 
+Full system description (architecture, deployments, branches, domains, integration status):
+[`docs/architecture.md`](docs/architecture.md).
+
 ## Shape
 
 - `packages/domain` - shared business types, branded IDs, order workflow, API contracts, errors.
