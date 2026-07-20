@@ -60,7 +60,9 @@ export const createHttpApiServer = (
           return;
         }
 
-        if (url.pathname === "/rpc") {
+        // Effect RPC clients post to "<base>/rpc/" (the protocol joins the
+        // configured URL with an empty path segment), so accept both forms.
+        if (url.pathname === "/rpc" || url.pathname === "/rpc/") {
           void handleEffectRpc(rpc.handler, request, response, url);
           return;
         }

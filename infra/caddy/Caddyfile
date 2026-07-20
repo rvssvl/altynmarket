@@ -29,7 +29,9 @@
   route {
     # Proxy the API through the same origin as the backoffice. Access control
     # is the application's own phone + OTP login; there is no HTTP Basic gate.
-    handle /rpc {
+    # Effect RPC clients post to /rpc/ (trailing slash), so match both forms.
+    @rpc path /rpc /rpc/
+    handle @rpc {
       encode zstd gzip
       reverse_proxy api:4000
     }
