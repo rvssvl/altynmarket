@@ -16,6 +16,10 @@ export interface SecretConfig {
   readonly kaspiRedirectBaseUrl: string;
   readonly kaspiDeeplinkBaseUrl: string;
   readonly otpProvider: "console" | "pending";
+  readonly smsProvider: "console" | "tc_telecom";
+  readonly tcTelecomApiKey: string;
+  readonly tcTelecomSenderId: string;
+  readonly tcTelecomBaseUrl: string;
   readonly pushProvider: "console" | "pending";
   readonly bootstrapAdminPhone?: string;
 }
@@ -55,6 +59,11 @@ export const readSecretConfig = (
   kaspiDeeplinkBaseUrl:
     env.KASPI_DEEPLINK_BASE_URL ?? "kaspi://pay/altyn-market",
   otpProvider: env.OTP_PROVIDER === "console" ? "console" : "pending",
+  smsProvider: env.SMS_PROVIDER === "tc_telecom" ? "tc_telecom" : "console",
+  tcTelecomApiKey: env.TC_TELECOM_API_KEY ?? "",
+  tcTelecomSenderId: env.TC_TELECOM_SENDER_ID ?? "TC_INFO",
+  tcTelecomBaseUrl:
+    env.TC_TELECOM_BASE_URL ?? "https://acc.tc-telecom.com/api/v1",
   pushProvider: env.PUSH_PROVIDER === "console" ? "console" : "pending",
   ...(env.BOOTSTRAP_ADMIN_PHONE
     ? { bootstrapAdminPhone: env.BOOTSTRAP_ADMIN_PHONE }

@@ -13,6 +13,10 @@ import {
   createPendingCardPaymentProvider,
   type RuntimePaymentProvider,
 } from "./modules/payments.js";
+import {
+  createTcTelecomSmsSender,
+  type SmsSender,
+} from "./modules/sms.js";
 import { createPostgresStore } from "./postgres-store.js";
 import { createInMemoryRealtimeBus } from "./realtime.js";
 
@@ -28,6 +32,7 @@ if (!secretConfig.databaseUrl) {
   console.warn("DATABASE_URL is not set; using in-memory backend store.");
 }
 
+const smsSender = createRuntimeSmsSender(secretConfig);
 const authService = createAuthService(store, {
   otpSecret: secretConfig.jwtAccessSecret || "dev-otp-secret",
   tokenSecret:
@@ -38,6 +43,7 @@ const authService = createAuthService(store, {
     appConfig.nodeEnv !== "production" ||
     process.env.AUTH_EXPOSE_DEV_CODE === "1",
   ...(process.env.AUTH_DEV_OTP ? { devOtp: process.env.AUTH_DEV_OTP } : {}),
+  ...(smsSender ? { smsSender } : {}),
 });
 await ensureBootstrapAdmin(authService, secretConfig.bootstrapAdminPhone);
 
@@ -66,6 +72,24 @@ async function createPostgresRuntime(databaseUrl: string) {
   });
   await runMigrations(database, migrations);
   return createPostgresStore(database);
+}
+
+function createRuntimeSmsSender(
+  secretConfig: ReturnType<typeof readSecretConfig>,
+): SmsSender | undefined {
+  if (secretConfig.smsProvider !== "tc_telecom") {
+    return undefined;
+  }
+
+  if (!secretConfig.tcTelecomApiKey) {
+    throw new Error("SMS_PROVIDER=tc_telecom requires TC_TELECOM_API_KEY.");
+  }
+
+  return createTcTelecomSmsSender({
+    apiKey: secretConfig.tcTelecomApiKey,
+    senderId: secretConfig.tcTelecomSenderId,
+    baseUrl: secretConfig.tcTelecomBaseUrl,
+  });
 }
 
 function createRuntimePaymentProvider(

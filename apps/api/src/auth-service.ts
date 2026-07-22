@@ -6,6 +6,7 @@ import type {
   UserRole,
 } from "@altyn-market/domain";
 import { createHash, randomBytes, randomInt, randomUUID } from "node:crypto";
+import type { SmsSender } from "./modules/sms.js";
 import type { StaffProfileInput, Store, StoredSessionRecord } from "./store.js";
 
 export interface AuthService {
@@ -30,6 +31,7 @@ export interface AuthService {
 export interface AuthServiceOptions {
   readonly otpSecret: string;
   readonly tokenSecret: string;
+  readonly smsSender?: SmsSender;
   readonly devOtp?: string;
   readonly exposeDevCode?: boolean;
   readonly accessTtlMs?: number;
@@ -94,7 +96,17 @@ export const createAuthService = (
         expiresAt: new Date(now().getTime() + otpTtlMs).toISOString(),
       });
 
-      if (process.env.NODE_ENV !== "test") {
+      if (options.smsSender) {
+        try {
+          await options.smsSender.sendOtp(phone, code);
+        } catch (error) {
+          console.error(`OTP SMS send failed for ${phone.e164}:`, error);
+          throw new AuthFailure(
+            "Failed to send SMS code. Try again later.",
+            502,
+          );
+        }
+      } else if (process.env.NODE_ENV !== "test") {
         console.log(`OTP for ${phone.e164}: ${code}`);
       }
 
