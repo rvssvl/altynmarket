@@ -31,3 +31,11 @@
 - Prefer shared contracts from `packages/domain`.
 - Preserve historical order prices by snapshotting order item prices.
 - Every admin mutation that changes operations should produce an audit log entry.
+
+## Mobile Delivery
+
+- iOS/Android builds and TestFlight uploads go through EAS; read `docs/eas.md` first. TestFlight
+  currently uses the personal Apple account with the `.demo` bundle identifiers — the corporate
+  account migration is paused (no DUNS yet), and the corporate identifiers must stay unused.
+- Both mobile apps have committed native `ios/` directories, so EAS ignores `ios.bundleIdentifier`
+  in `app.json`; identifier changes must also be made in the native projects.

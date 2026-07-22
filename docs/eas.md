@@ -70,6 +70,56 @@ app version (`0.1.0` initially) as their runtime version; the existing iOS nativ
 projects use `1.0.0`. Bump the relevant runtime version before releasing a binary
 that changes native code.
 
+## Corporate account migration (attempted 2026-07-22, paused)
+
+We tried to move both apps to the client's App Store Connect account and rolled
+everything back the same day. TestFlight uploads continue on the personal
+account with the `.demo` identifiers until the client has a DUNS number and a
+proper Organization enrollment.
+
+Client account facts: Account Holder "Win Light" (contact@altyn-market.kz),
+provider name "Adlet Jumashev", ASC provider ID 129171349, enrolled as
+Individual. Rassul's Apple ID (personal team `L3Q4L68M3P`, Individual) holds an
+ASC Admin role on the client team but has no developer-portal access there, so
+EAS cannot sign builds for that team under his login.
+
+Lessons that cost a day — read before retrying:
+
+- Both apps have committed native `ios/` directories, so EAS Build ignores
+  `ios.bundleIdentifier` in `app.json` and reads the native code. An identifier
+  change must be made in each app's `project.pbxproj` (two
+  `PRODUCT_BUNDLE_IDENTIFIER` entries) and `Info.plist` (display name, URL
+  scheme, associated bundle ID), or via `expo prebuild --clean`.
+- The EAS "Select a Provider" prompt is App Store Connect only; it does not
+  affect signing. The signing team is the developer-portal team, printed as
+  `› Team <name> (<id>)`. If no "Select a team" prompt appears, the Apple ID
+  belongs to a single portal team and EAS picks it silently.
+- An ASC Admin role does not grant developer-portal access. That requires the
+  separate "Access to Certificates, Identifiers & Profiles" (Developer
+  Resources) permission on the user, set by the Account Holder — or a one-time
+  EAS login as the Account Holder via `EXPO_APPLE_ID=<apple id>` (their 2FA
+  device is needed once; the resulting credentials are stored on EAS servers
+  and later builds run without Apple login).
+- EAS caches the Apple session, including the team choice, in `~/.app-store`.
+  `rm -rf ~/.app-store` forces a fresh login.
+- Side effect left in place: `kz.altynmarket.customer` and
+  `kz.altynmarket.staff` are registered as identifiers (with stray provisioning
+  profiles) on the personal team `L3Q4L68M3P`. Harmless; delete them at
+  developer.apple.com → Identifiers when convenient. No ASC app records were
+  created with them, so the corporate team can still register them.
+- Keep it that way: do NOT create App Store Connect app records with the
+  corporate identifiers on the personal account — an ASC app record locks its
+  bundle ID to that account permanently.
+
+Resume checklist once the corporate (Organization) account exists: switch the
+identifiers and display names in `app.json` and the native iOS projects to the
+corporate values from the table above, drop the old `ascAppId` values from both
+`eas.json` files, obtain portal access to the corporate team (permission above
+or Account Holder login), and decline reusing the `L3Q4L68M3P` distribution
+certificate and push key so EAS creates fresh ones under the corporate team.
+After the first `eas submit`, pin the new numeric app IDs as
+`submit.demo.ios.ascAppId`.
+
 ## Required account setup before store release
 
 1. Apple: an active Apple Developer Program membership for `rassul.rakhimzhan`.
