@@ -70,8 +70,30 @@ jobs:
             --exclude dist \
             --exclude .env \
             --exclude '.env.*' \
+            --exclude infra/secrets \
             -e "ssh -p $STAGING_SSH_PORT" \
             ./ "$STAGING_SSH_USER@$STAGING_HOST:$release_path/"
+      - name: Push environment file
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          STAGING_SSH_PORT: ${{ secrets.STAGING_SSH_PORT }}
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/sops" \
+            https://github.com/getsops/sops/releases/download/v3.10.2/sops-v3.10.2.linux.amd64
+          echo "79b0f844237bd4b0446e4dc884dbc1765fc7dedc3968f743d5949c6f2e701739  $RUNNER_TEMP/sops" \
+            | sha256sum --check --quiet
+          chmod +x "$RUNNER_TEMP/sops"
+          "$RUNNER_TEMP/sops" decrypt infra/secrets/staging.env > "$RUNNER_TEMP/staging.env"
+          if grep -q CHANGEME "$RUNNER_TEMP/staging.env"; then
+            echo "infra/secrets/staging.env still contains CHANGEME placeholders." >&2
+            echo "Fill them locally with: sops infra/secrets/staging.env" >&2
+            exit 1
+          fi
+          ssh -p "$STAGING_SSH_PORT" "$STAGING_SSH_USER@$STAGING_HOST" \
+            'umask 027 && cat > /etc/altyn-market/.staging.env.tmp && mv /etc/altyn-market/.staging.env.tmp /etc/altyn-market/staging.env' \
+            < "$RUNNER_TEMP/staging.env"
       - name: Activate release
         env:
           STAGING_HOST: ${{ secrets.STAGING_HOST }}

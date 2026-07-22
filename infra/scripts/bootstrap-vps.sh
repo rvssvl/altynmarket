@@ -29,7 +29,7 @@ fi
 usermod -aG docker "${DEPLOY_USER}"
 install -d -o "${DEPLOY_USER}" -g "${DEPLOY_USER}" -m 0750 "${APP_ROOT}"
 install -d -o "${DEPLOY_USER}" -g "${DEPLOY_USER}" -m 0750 "${APP_ROOT}/releases"
-install -d -o root -g "${DEPLOY_USER}" -m 0750 /etc/altyn-market
+install -d -o root -g "${DEPLOY_USER}" -m 0770 /etc/altyn-market
 
 ufw default deny incoming
 ufw default allow outgoing
@@ -39,4 +39,4 @@ ufw allow OpenSSH
 ufw --force enable
 
 systemctl enable --now docker
-echo "Bootstrap complete. Add the CI deploy public key to /home/${DEPLOY_USER}/.ssh/authorized_keys, then create /etc/altyn-market/staging.env from infra/env/staging.env.example."
+echo "Bootstrap complete. Add the CI deploy public key to /home/${DEPLOY_USER}/.ssh/authorized_keys. The deploy workflow writes /etc/altyn-market/staging.env from the sops-encrypted infra/secrets/staging.env (see docs/secrets.md)."

@@ -18,9 +18,11 @@ production credentials or data.
 3. Add the GitHub Actions deploy public key to
    `/home/altyn-deploy/.ssh/authorized_keys` and set ownership to
    `altyn-deploy:altyn-deploy`.
-4. Copy `env/staging.env.example` to `/etc/altyn-market/staging.env`, replace
-   every placeholder with a strong secret, and make it readable only by root
-   and the `altyn-deploy` group.
+4. Fill in the sops-encrypted `infra/secrets/staging.env` (see
+   `docs/secrets.md`). The deploy workflow decrypts it and writes
+   `/etc/altyn-market/staging.env` on every deploy; nothing is edited by hand
+   on the VPS. The directory must be group-writable for `altyn-deploy`
+   (`bootstrap-vps.sh` sets mode 0770).
 5. Point the three staging DNS names at the VPS IPv4 address before the first
    deployment. Caddy obtains and renews the TLS certificates automatically.
 
@@ -52,11 +54,13 @@ Create a GitHub Environment named `staging` and add these secrets:
 - `STAGING_SSH_PRIVATE_KEY` - the private half of a dedicated CI-only ED25519 key.
 - `STAGING_SSH_KNOWN_HOSTS` - output of `ssh-keyscan -H <vps-ip>` verified
   against the PS Cloud console.
+- `SOPS_AGE_KEY` - age private key that decrypts `infra/secrets/*.env`
+  (see `docs/secrets.md`).
 
-The deploy workflow uploads a commit-SHA release directory, switches the
-`current` symlink only after the release is available, then starts Docker
-Compose. Environment secrets stay at `/etc/altyn-market/staging.env`; they are
-never copied by CI and never committed.
+The deploy workflow uploads a commit-SHA release directory, decrypts
+`infra/secrets/staging.env` and writes it to `/etc/altyn-market/staging.env`,
+switches the `current` symlink only after the release is available, then
+starts Docker Compose. Secrets are committed only in sops-encrypted form.
 
 ## Backups
 
