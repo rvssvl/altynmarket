@@ -47,15 +47,12 @@ cd apps/customer-mobile && npx --yes eas-cli@21.0.1 workflow:run e2e.yml  # об
 
 Джоба `release` в том же workflow стартует на каждом деплое staging параллельно
 с тестами: iOS demo-билд собирается и **сам сабмитится в TestFlight**
-(`--auto-submit`), Android собирается по профилю `preview` как internal-APK —
-ставится по ссылке/QR со страницы билда на expo.dev. На ночном cron релизы не
-собираются; при ручном запуске — галочка `release`.
-
-Разовая настройка для iOS: в EAS должен лежать App Store Connect API Key
-(`eas credentials` → iOS → App Store Connect API Key), иначе non-interactive
-submit упадёт. Аналог TestFlight для Android — Internal testing в Google Play:
-подключается позже через `eas submit -p android` с сервисным аккаунтом, когда
-приложение заведено в Play Console.
+(`--auto-submit`, ASC API Key уже лежит в EAS credentials), Android собирается
+по профилю `preview` как internal-APK — ставится по ссылке/QR со страницы
+билда на expo.dev. На ночном cron релизы не собираются; при ручном запуске —
+галочка `release`. Аналог TestFlight для Android — Internal testing в Google
+Play: подключается позже через `eas submit -p android` с сервисным аккаунтом,
+когда приложение заведено в Play Console.
 
 ## Как добавить кейс
 

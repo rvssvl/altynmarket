@@ -109,11 +109,13 @@ jobs:
 
   release:
     name: Demo release ${{ matrix.app }} (TestFlight + Android link)
-    # Manual-only for now: iOS auto-submit needs an App Store Connect API Key
-    # stored in EAS credentials, and each run costs 4 cloud builds. Flip the
-    # condition to include workflow_run once the ASC key is in place.
+    # Runs on every staging deploy in parallel with the tests (iOS demo
+    # auto-submits to TestFlight via the ASC API key stored in EAS; Android
+    # preview APK installs from the expo.dev build page). Skipped on the
+    # nightly cron; on manual dispatch only when "release" is checked.
     if: >-
-      github.event_name == 'workflow_dispatch' && github.event.inputs.release == 'true'
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.release == 'true')
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
