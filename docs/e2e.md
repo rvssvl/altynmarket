@@ -23,8 +23,18 @@
 
 ## Запуск
 
-CI (`.github/workflows/e2e.yml`) стартует сам после каждого деплоя staging,
-ночью в 03:00 Алматы и вручную (`workflow_dispatch`, можно выбрать web/mobile).
+Модель затрат: на каждый пуш в staging и на ночном cron бегает только
+**бесплатный** web-прогон (Playwright на GitHub-раннере). Платное облако EAS
+(мобильные Maestro-тесты + релиз в TestFlight/APK, ~8 билдов ≈ $12) — только
+по явной команде «релизного прогона»:
+
+```bash
+gh workflow run e2e.yml -f platforms=all -f release=true
+# или кнопка Run workflow во вкладке Actions с галочкой release
+```
+
+Отладка Maestro-флоу — локально на симуляторе, бесплатно (`maestro test`,
+`maestro studio` или через Maestro MCP агентом); облако — финальная проверка.
 Требуемые секреты GitHub: `EXPO_TOKEN` (personal access token с expo.dev).
 
 Локально:
@@ -45,14 +55,18 @@ cd apps/customer-mobile && npx --yes eas-cli@21.0.1 workflow:run e2e.yml  # об
 
 ## Demo-релизы по пушу
 
-Джоба `release` в том же workflow стартует на каждом деплое staging параллельно
-с тестами: iOS demo-билд собирается и **сам сабмитится в TestFlight**
-(`--auto-submit`, ASC API Key уже лежит в EAS credentials), Android собирается
-по профилю `preview` как internal-APK — ставится по ссылке/QR со страницы
-билда на expo.dev. На ночном cron релизы не собираются; при ручном запуске —
-галочка `release`. Аналог TestFlight для Android — Internal testing в Google
-Play: подключается позже через `eas submit -p android` с сервисным аккаунтом,
-когда приложение заведено в Play Console.
+Джоба `release` стартует только в релизном прогоне (галочка `release`):
+iOS demo-билд собирается и **сам сабмитится в TestFlight** (`--auto-submit`,
+ASC API Key уже лежит в EAS credentials), Android собирается по профилю
+`preview` как internal-APK — ставится по ссылке/QR со страницы билда на
+expo.dev. Аналог TestFlight для Android — Internal testing в Google Play:
+подключается позже через `eas submit -p android` с сервисным аккаунтом, когда
+приложение заведено в Play Console.
+
+Локальная альтернатива облачной сборке: `eas build --platform ios --profile
+demo --local` собирает .ipa на твоём Mac (нужен Xcode; билд-минуты EAS не
+тратятся), затем `eas submit -p ios --path <файл>.ipa` заливает его в
+TestFlight через тот же ASC-ключ.
 
 ## Как добавить кейс
 

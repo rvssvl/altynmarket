@@ -1,6 +1,13 @@
 name: E2E
 
-# Full end-to-end suite against staging:
+# End-to-end suite against staging.
+# Cost model: every staging deploy and the nightly cron run only the FREE
+# web job (Playwright on a GitHub runner). The paid EAS cloud — mobile
+# Maestro tests and the TestFlight/APK release — runs ONLY on manual
+# dispatch ("release run"):
+#   gh workflow run e2e.yml -f platforms=all -f release=true
+# Maestro flow debugging happens locally against a simulator (free) — see
+# docs/e2e.md.
 #   web    — Playwright drives admin-staging in headless Chromium
 #   mobile — EAS Workflows build both Expo apps and run Maestro flows
 #            on EAS-hosted Android emulators and iOS simulators
@@ -68,9 +75,9 @@ jobs:
 
   mobile:
     name: Mobile ${{ matrix.app }} (Maestro on EAS)
+    # Paid EAS builds — manual release runs only, never on push or cron.
     if: >-
-      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
-      (github.event.inputs.platforms == null || github.event.inputs.platforms != 'web')
+      github.event_name == 'workflow_dispatch' && github.event.inputs.platforms != 'web'
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -109,13 +116,11 @@ jobs:
 
   release:
     name: Demo release ${{ matrix.app }} (TestFlight + Android link)
-    # Runs on every staging deploy in parallel with the tests (iOS demo
-    # auto-submits to TestFlight via the ASC API key stored in EAS; Android
-    # preview APK installs from the expo.dev build page). Skipped on the
-    # nightly cron; on manual dispatch only when "release" is checked.
+    # iOS demo auto-submits to TestFlight via the ASC API key stored in EAS;
+    # Android preview APK installs from the expo.dev build page. Manual
+    # release runs only ("release" checkbox / -f release=true).
     if: >-
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.release == 'true')
+      github.event_name == 'workflow_dispatch' && github.event.inputs.release == 'true'
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
