@@ -243,7 +243,12 @@ ${mobileResults.length ? `<h2>Mobile (Maestro, локальный симулят
 );
 
 console.log(`\n✔ Report: ${path.join(outDir, "index.html")}`);
-if (process.platform === "darwin" && !process.env.CI) {
-  spawnSync("open", [path.join(outDir, "index.html")]);
+if (!process.env.CI) {
+  // Hand the report to a detached local server (it opens the browser itself);
+  // traces in the Playwright report only work over HTTP, not file://.
+  spawn(process.execPath, [path.join(e2eDir, "scripts", "serve-report.mjs")], {
+    detached: true,
+    stdio: "ignore",
+  }).unref();
 }
 process.exit(failedCount === 0 ? 0 : 1);

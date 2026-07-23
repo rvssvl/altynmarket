@@ -59,7 +59,8 @@ gh workflow run e2e.yml --repo rvssvl/altynmarket --ref main -f platforms=all -f
 ## Статусы и отчёты
 
 - Дэшборд (CI-прогоны, история, видео Playwright): https://rvssvl.github.io/altynmarket/
-- Локальный отчёт: `e2e/local-report/index.html`
+- Локальный отчёт: открывается сам после `local` (сервер http://localhost:4499);
+  показать ещё раз — `pnpm --filter @altyn-market/e2e report`
 - Раны CI: `gh run list --repo rvssvl/altynmarket --workflow e2e.yml`
 - Билды EAS: `npx --yes eas-cli@21.0.1 build:list --limit 5` (в папке приложения)
 - Мобильные EAS-раны с артефактами: expo.dev → проект → Workflows

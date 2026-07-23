@@ -8,6 +8,7 @@
     "fixtures:mobile": "tsx scripts/prepare-mobile-fixtures.ts",
     "test:web": "playwright test --config playwright/playwright.config.ts",
     "local": "node scripts/run-local.mjs",
+    "report": "node scripts/serve-report.mjs",
     "report:web": "playwright show-report playwright/report"
   },
   "dependencies": {
