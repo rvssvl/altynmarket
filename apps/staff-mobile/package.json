@@ -17,7 +17,8 @@
     "eas:update:demo": "npx --yes eas-cli@21.0.1 update --channel demo",
     "eas:update:production": "npx --yes eas-cli@21.0.1 update --channel production",
     "test": "vitest run --passWithNoTests --dir src",
-    "eas:release:demo": "npx --yes eas-cli@21.0.1 build --platform ios --profile demo --auto-submit --non-interactive"
+    "eas:release:demo": "npx --yes eas-cli@21.0.1 build --platform ios --profile demo --auto-submit --non-interactive",
+    "eas:release:demo:local": "npx --yes eas-cli@21.0.1 build --platform ios --profile demo --local --output ./build-demo.ipa && npx --yes eas-cli@21.0.1 submit --platform ios --path ./build-demo.ipa"
   },
   "dependencies": {
     "@altyn-market/client": "workspace:*",
