@@ -7,6 +7,7 @@
     "seed": "tsx scripts/seed.ts",
     "fixtures:mobile": "tsx scripts/prepare-mobile-fixtures.ts",
     "test:web": "playwright test --config playwright/playwright.config.ts",
+    "local": "node scripts/run-local.mjs",
     "report:web": "playwright show-report playwright/report"
   },
   "dependencies": {

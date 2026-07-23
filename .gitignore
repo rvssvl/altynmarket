@@ -16,3 +16,4 @@ e2e/playwright/report
 e2e/playwright/results.json
 e2e/playwright/.auth
 build-demo.ipa
+e2e/local-report

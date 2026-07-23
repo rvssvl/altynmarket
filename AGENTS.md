@@ -44,6 +44,9 @@
 
 - E2E lives in `e2e/` (Playwright for backoffice) and `apps/*-mobile/.maestro/` (Maestro flows,
   run on EAS Workflows). Read `docs/e2e.md` before adding or changing cases.
+- Agent runbook with exact commands (local runs, TestFlight releases, cloud release runs):
+  `.claude/skills/e2e/SKILL.md`. Local suite: `pnpm --filter @altyn-market/e2e local`.
+  Debug Maestro flows locally (free); never iterate on paid cloud EAS runs.
 - Tests run against staging: dedicated `+77000000xx` accounts, `E2E-*` catalog items, dev OTP
   `666999`. Never point them at production or use real customer data.
 - Prepare test state through RPC helpers (`e2e/lib/`), not through the UI.

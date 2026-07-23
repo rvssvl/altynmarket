@@ -37,6 +37,18 @@ gh workflow run e2e.yml -f platforms=all -f release=true
 `maestro studio` или через Maestro MCP агентом); облако — финальная проверка.
 Требуемые секреты GitHub: `EXPO_TOKEN` (personal access token с expo.dev).
 
+**Локальный прогон всей матрицы одним заходом** (агентский runbook —
+`.claude/skills/e2e/SKILL.md`):
+
+```bash
+pnpm --filter @altyn-market/e2e local            # web + iOS-симулятор
+pnpm --filter @altyn-market/e2e local -- --web --ios --android
+```
+
+Скрипт `e2e/scripts/run-local.mjs` сидит staging, готовит фикстуры, гоняет
+Playwright и Maestro, пишет записи экрана (simctl/adb) и открывает единый отчёт
+`e2e/local-report/index.html` — локальный аналог Pages-дэшборда.
+
 Локально:
 
 ```bash
