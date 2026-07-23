@@ -49,3 +49,13 @@
 - Prepare test state through RPC helpers (`e2e/lib/`), not through the UI.
 - Web selectors use existing `data-action`/`data-module` attributes; Maestro taps visible text.
 - Scripts built on the Effect RPC client must end with `process.exit(0)`.
+
+## Staging VPS & Secrets
+
+- Staging runs on a VPS at `194.110.55.132` (domains `*-staging.altyn-market.kz`). Operator
+  access: `ssh ubuntu@194.110.55.132` with the operator's SSH key (passwordless sudo).
+  The `altyn-deploy` user is reserved for CI; do not reuse it interactively.
+- Runtime secrets are sops-encrypted in `infra/secrets/*.env` and pushed to
+  `/etc/altyn-market/staging.env` by the deploy workflow. Never edit that file on the VPS by
+  hand and never commit plaintext secrets; read `docs/secrets.md` first.
+- Deploys happen only by pushing the `staging` branch; `main` deploys nothing.

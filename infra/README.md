@@ -44,6 +44,16 @@ session to reach the API without weakening staging access control.
 The bootstrap script is in `scripts/bootstrap-vps.sh`; copy it to the server
 before running it. Do not run it from the release workflow.
 
+## Operator access
+
+- SSH: `ssh ubuntu@<vps-ip>` (key-based; operator public keys live in
+  `~ubuntu/.ssh/authorized_keys`, `ubuntu` has passwordless sudo). Password
+  login should stay disabled day-to-day.
+- The `altyn-deploy` account is CI-only: it owns `/opt/altyn-market` releases
+  and writes `/etc/altyn-market/staging.env` during deploys.
+- The staging IP is the A record of `api-staging.altyn-market.kz`
+  (`dig +short api-staging.altyn-market.kz`).
+
 ## GitHub Actions secrets
 
 Create a GitHub Environment named `staging` and add these secrets:
