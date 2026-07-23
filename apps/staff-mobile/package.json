@@ -16,11 +16,13 @@
     "eas:update:preview": "npx --yes eas-cli@21.0.1 update --channel preview",
     "eas:update:demo": "npx --yes eas-cli@21.0.1 update --channel demo",
     "eas:update:production": "npx --yes eas-cli@21.0.1 update --channel production",
-    "test": "vitest run --passWithNoTests --dir src"
+    "test": "vitest run --passWithNoTests --dir src",
+    "eas:release:demo": "npx --yes eas-cli@21.0.1 build --platform ios --profile demo --auto-submit --non-interactive"
   },
   "dependencies": {
     "@altyn-market/client": "workspace:*",
     "@altyn-market/domain": "workspace:*",
+    "@effect/atom-react": "4.0.0-beta.90",
     "effect": "4.0.0-beta.90",
     "expo": "^56.0.12",
     "expo-asset": "^56.0.17",

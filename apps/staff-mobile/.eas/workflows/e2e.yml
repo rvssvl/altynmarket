@@ -1,0 +1,39 @@
+# Maestro E2E for the staff app on EAS-hosted devices.
+# Triggered from .github/workflows/e2e.yml via `eas workflow:run e2e.yml`;
+# run e2e/scripts/prepare-mobile-fixtures.ts against staging first — the
+# picker/courier flows consume the assigned tasks it creates.
+# Each platform signs in with its own staff accounts — the iOS and Android
+# jobs run concurrently and must not race for the same task.
+name: E2E staff (Maestro)
+
+jobs:
+  build_android:
+    name: Build Android e2e apk
+    type: build
+    params:
+      platform: android
+      profile: e2e
+  test_android:
+    name: Maestro Android
+    needs: [build_android]
+    type: maestro
+    params:
+      build_id: ${{ needs.build_android.outputs.build_id }}
+      flow_path:
+        - .maestro/picker-android.yaml
+        - .maestro/courier-android.yaml
+  build_ios:
+    name: Build iOS e2e simulator app
+    type: build
+    params:
+      platform: ios
+      profile: e2e
+  test_ios:
+    name: Maestro iOS
+    needs: [build_ios]
+    type: maestro
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      flow_path:
+        - .maestro/picker-ios.yaml
+        - .maestro/courier-ios.yaml

@@ -19,6 +19,19 @@
         "EXPO_PUBLIC_API_BASE_URL": "https://api-staging.altyn-market.kz"
       }
     },
+    "e2e": {
+      "distribution": "internal",
+      "channel": "e2e",
+      "ios": {
+        "simulator": true
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://api-staging.altyn-market.kz"
+      }
+    },
     "demo": {
       "autoIncrement": true,
       "channel": "demo",

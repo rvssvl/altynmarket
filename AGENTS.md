@@ -39,3 +39,13 @@
   account migration is paused (no DUNS yet), and the corporate identifiers must stay unused.
 - Both mobile apps have committed native `ios/` directories, so EAS ignores `ios.bundleIdentifier`
   in `app.json`; identifier changes must also be made in the native projects.
+
+## E2E Testing
+
+- E2E lives in `e2e/` (Playwright for backoffice) and `apps/*-mobile/.maestro/` (Maestro flows,
+  run on EAS Workflows). Read `docs/e2e.md` before adding or changing cases.
+- Tests run against staging: dedicated `+77000000xx` accounts, `E2E-*` catalog items, dev OTP
+  `666999`. Never point them at production or use real customer data.
+- Prepare test state through RPC helpers (`e2e/lib/`), not through the UI.
+- Web selectors use existing `data-action`/`data-module` attributes; Maestro taps visible text.
+- Scripts built on the Effect RPC client must end with `process.exit(0)`.

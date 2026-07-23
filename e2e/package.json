@@ -1,0 +1,22 @@
+{
+  "name": "@altyn-market/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "seed": "tsx scripts/seed.ts",
+    "fixtures:mobile": "tsx scripts/prepare-mobile-fixtures.ts",
+    "test:web": "playwright test --config playwright/playwright.config.ts",
+    "report:web": "playwright show-report playwright/report"
+  },
+  "dependencies": {
+    "@altyn-market/client": "workspace:*",
+    "@altyn-market/domain": "workspace:*",
+    "effect": "4.0.0-beta.90"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.0",
+    "@types/node": "^22.12.0",
+    "tsx": "^4.20.0"
+  }
+}

@@ -70,6 +70,9 @@ importers:
       '@altyn-market/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@effect/atom-react':
+        specifier: 4.0.0-beta.90
+        version: 4.0.0-beta.90(effect@4.0.0-beta.90)(react@19.2.3)(scheduler@0.27.0)
       effect:
         specifier: 4.0.0-beta.90
         version: 4.0.0-beta.90
@@ -131,6 +134,9 @@ importers:
       '@altyn-market/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@effect/atom-react':
+        specifier: 4.0.0-beta.90
+        version: 4.0.0-beta.90(effect@4.0.0-beta.90)(react@19.2.3)(scheduler@0.27.0)
       effect:
         specifier: 4.0.0-beta.90
         version: 4.0.0-beta.90
@@ -168,6 +174,28 @@ importers:
       '@types/react':
         specifier: ^19.1.0
         version: 19.2.17
+
+  e2e:
+    dependencies:
+      '@altyn-market/client':
+        specifier: workspace:*
+        version: link:../packages/client
+      '@altyn-market/domain':
+        specifier: workspace:*
+        version: link:../packages/domain
+      effect:
+        specifier: 4.0.0-beta.90
+        version: 4.0.0-beta.90
+    devDependencies:
+      '@playwright/test':
+        specifier: ^1.54.0
+        version: 1.61.1
+      '@types/node':
+        specifier: ^22.12.0
+        version: 22.20.0
+      tsx:
+        specifier: ^4.20.0
+        version: 4.22.4
 
   packages/client:
     dependencies:
@@ -543,6 +571,13 @@ packages:
   '@babel/types@7.29.7':
     resolution: {integrity: sha512-4zBIxpPzowiZpusoFkyGVwakdRJUyuH5PxQ/PrqghfdFWWasvnCdPfQXHrenDai+gyLARulZjZowCOj6fjT4pA==}
     engines: {node: '>=6.9.0'}
+
+  '@effect/atom-react@4.0.0-beta.90':
+    resolution: {integrity: sha512-E1GFtNT+ZeIA3//g+IcbaAfjVAn5VZ08q4/MTEEV/862AlCfia8nRETJqpvVcTEK4X6EnebjTXdWu7tTV9wggg==}
+    peerDependencies:
+      effect: ^4.0.0-beta.90
+      react: ^19.2.4
+      scheduler: '*'
 
   '@effect/vitest@4.0.0-beta.90':
     resolution: {integrity: sha512-eWSkDg34TjsrSVfrU0PkR8YN/AeeM0kt792/RCobCVTx5SGO/iYwyqyjl/73nP8Q5rMM6UTepaBCzK7D/H1tlg==}
@@ -1128,6 +1163,11 @@ packages:
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [x64]
     os: [win32]
+
+  '@playwright/test@1.61.1':
+    resolution: {integrity: sha512-8nKv6+0RJSL9FE4jYOEGXnPeM/Hg12qZpmqzZjRh3qM0Y7c3z1mrOTfFLids72RDQYVh9WpLEfR5WdpNX4fkig==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   '@react-native/assets-registry@0.85.3':
     resolution: {integrity: sha512-u9ZiYP23vA2IFtdFQFmetzSmk6SM0xgKIoiOsr1hXNHjHaLhOm+/Ph1ud57wX6+Dbwdzx8coJgnzSKL3W21PCg==}
@@ -1981,6 +2021,11 @@ packages:
     resolution: {integrity: sha512-zJ2mQYM18rEFOudeV4GShTGIQ7RbzA7ozbU9I/XBpm7kqgMywgmylMwXHxZJmkVoYkna9d2pVXVXPdYTP9ej8Q==}
     engines: {node: '>= 0.6'}
 
+  fsevents@2.3.2:
+    resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
+    engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
+    os: [darwin]
+
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -2543,6 +2588,16 @@ packages:
   picomatch@4.0.4:
     resolution: {integrity: sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==}
     engines: {node: '>=12'}
+
+  playwright-core@1.61.1:
+    resolution: {integrity: sha512-h7Qlt6m4REp25qvIdvbDtVmD4LqVXfpRxhORv9L0jzETM05p4fuPJ3dKyuSXQxDSbXnmS79HAgi9589lGSpLkg==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  playwright@1.61.1:
+    resolution: {integrity: sha512-DWnY5o3YbLWK4GovuAVwpqL+1VwGNdUGrRr++8j8PtQQzvAVZUIMjKQ90fY689sEJZJBbZVw1rXaOKSTitkzPQ==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   plist@3.1.1:
     resolution: {integrity: sha512-ZIfcLJC+7E7FBFnDxm9MPmt7D+DidyQ26lewieO75AdhA2ayMtsJSES0iWzqJQbcVRSrTufQoy0DR94xHue0oA==}
@@ -3582,6 +3637,12 @@ snapshots:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
 
+  '@effect/atom-react@4.0.0-beta.90(effect@4.0.0-beta.90)(react@19.2.3)(scheduler@0.27.0)':
+    dependencies:
+      effect: 4.0.0-beta.90
+      react: 19.2.3
+      scheduler: 0.27.0
+
   '@effect/vitest@4.0.0-beta.90(effect@4.0.0-beta.90)(vitest@3.2.6(@types/node@22.20.0)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))':
     dependencies:
       effect: 4.0.0-beta.90
@@ -4206,6 +4267,10 @@ snapshots:
 
   '@oxlint/binding-win32-x64-msvc@1.71.0':
     optional: true
+
+  '@playwright/test@1.61.1':
+    dependencies:
+      playwright: 1.61.1
 
   '@react-native/assets-registry@0.85.3': {}
 
@@ -5145,6 +5210,9 @@ snapshots:
 
   fresh@0.5.2: {}
 
+  fsevents@2.3.2:
+    optional: true
+
   fsevents@2.3.3:
     optional: true
 
@@ -5769,6 +5837,14 @@ snapshots:
   picomatch@2.3.2: {}
 
   picomatch@4.0.4: {}
+
+  playwright-core@1.61.1: {}
+
+  playwright@1.61.1:
+    dependencies:
+      playwright-core: 1.61.1
+    optionalDependencies:
+      fsevents: 2.3.2
 
   plist@3.1.1:
     dependencies:

@@ -1,0 +1,49 @@
+# Maestro E2E for the customer app on EAS-hosted devices.
+# Triggered from .github/workflows/e2e.yml via `eas workflow:run e2e.yml`;
+# run e2e/scripts/prepare-mobile-fixtures.ts against staging first.
+# Checkout uses a separate customer account per platform — the iOS and
+# Android jobs run concurrently and must not share one server-side cart.
+name: E2E customer (Maestro)
+
+jobs:
+  build_android:
+    name: Build Android e2e apk
+    type: build
+    params:
+      platform: android
+      profile: e2e
+  test_android:
+    name: Maestro Android
+    needs: [build_android]
+    type: maestro
+    params:
+      build_id: ${{ needs.build_android.outputs.build_id }}
+      flow_path:
+        - .maestro/login.yaml
+        - .maestro/browse-catalog.yaml
+        - .maestro/checkout-android.yaml
+  build_ios:
+    name: Build iOS e2e simulator app
+    type: build
+    params:
+      platform: ios
+      profile: e2e
+  test_ios:
+    name: Maestro iOS (login + catalog)
+    needs: [build_ios]
+    type: maestro
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      flow_path:
+        - .maestro/login.yaml
+        - .maestro/browse-catalog.yaml
+  test_ios_checkout:
+    # Checkout runs on its own fresh simulator: the XCUITest driver degrades
+    # after several launchApp cycles in one session and dies during inputText.
+    name: Maestro iOS (checkout)
+    needs: [build_ios]
+    type: maestro
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      flow_path:
+        - .maestro/checkout-ios.yaml

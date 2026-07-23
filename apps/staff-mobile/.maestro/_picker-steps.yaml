@@ -1,0 +1,53 @@
+# Shared picker steps; PHONE is provided by the per-platform wrapper flow.
+# The task list syncs from staging after login (can take >10s) and the
+# selected-order panel renders below the list — hence the waits and scrolls.
+appId: kz.altynmarket.staff.demo
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "\\+7.*"
+- eraseText
+- inputText: ${PHONE}
+- tapOn: "Send OTP"
+- assertVisible: "OTP code"
+- tapOn: "Sign in"
+- assertVisible: "Picking Tasks"
+- extendedWaitUntil:
+    visible: "Assigned"
+    timeout: 60000
+- tapOn:
+    text: "Assigned"
+    index: 0
+- scrollUntilVisible:
+    element:
+      text: "Selected order"
+    direction: DOWN
+- scrollUntilVisible:
+    element:
+      text: "Start"
+    direction: DOWN
+- tapOn: "Start"
+- extendedWaitUntil:
+    notVisible: "Starting..."
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "Confirm"
+    direction: DOWN
+- tapOn:
+    text: "Confirm"
+    index: 0
+- extendedWaitUntil:
+    notVisible: "Saving..."
+    timeout: 15000
+- assertVisible: "Picked"
+- scrollUntilVisible:
+    element:
+      text: "Complete"
+    direction: UP
+- tapOn: "Complete"
+- extendedWaitUntil:
+    notVisible: "Saving..."
+    timeout: 15000
+- assertVisible: "Completed"

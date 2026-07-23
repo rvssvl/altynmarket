@@ -1,0 +1,26 @@
+# Customer app: ensure we are signed in as the e2e customer.
+# clearState does not wipe the iOS Keychain, so the app may restore the
+# previous session and skip the auth gate — login runs conditionally.
+# No hideKeyboard — unreliable on the iOS simulator; the app sets
+# keyboardShouldPersistTaps="handled", so button taps land through it.
+appId: kz.altynmarket.customer.demo
+env:
+  PHONE: "+77000000001"
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    notVisible: "Restoring secure session..."
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Phone number"
+    commands:
+      - tapOn:
+          text: "\\+7.*"
+      - eraseText
+      - inputText: ${PHONE}
+      - tapOn: "Send code"
+      - assertVisible: "Enter code"
+      - tapOn: "Enter app"
+- assertVisible: "Search products"

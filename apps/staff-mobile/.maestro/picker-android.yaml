@@ -1,0 +1,8 @@
+# Per-platform wrapper: iOS and Android EAS jobs run concurrently, each with
+# its own staff account so they never race for the same task.
+appId: kz.altynmarket.staff.demo
+---
+- runFlow:
+    file: _picker-steps.yaml
+    env:
+      PHONE: "+77000000002"

@@ -1,0 +1,39 @@
+# Shared checkout steps; PHONE is provided by the per-platform wrapper flow
+# (iOS and Android jobs run concurrently — separate customers avoid racing
+# for one server-side cart). Keyboard is dismissed by tapping the header —
+# Maestro's hideKeyboard is unreliable on the iOS simulator.
+appId: kz.altynmarket.customer.demo
+---
+- runFlow:
+    file: login.yaml
+    env:
+      PHONE: ${PHONE}
+- tapOn: "Search products"
+- inputText: "E2E Apples"
+- tapOn: "Altyn Market"
+- assertVisible: "E2E Apples"
+- tapOn: "\\+"
+# The cart badge merges into the tab's accessibility label on iOS
+# ("1 Basket"), so an exact "Basket" match would miss it.
+- tapOn: ".*Basket.*"
+- assertVisible: "Checkout"
+- tapOn: "Checkout"
+- assertVisible: "Payment method"
+- tapOn: "Street and building"
+- inputText: "E2E Test Street 1"
+- tapOn: "Altyn Market"
+- tapOn: "Card"
+- scrollUntilVisible:
+    element:
+      text: "Confirm order"
+    direction: DOWN
+- tapOn: "Confirm order"
+- extendedWaitUntil:
+    notVisible: "Confirming..."
+    timeout: 20000
+# The app lands on the Orders screen scrolled into the middle of the payment
+# panel — scroll back up to its title.
+- scrollUntilVisible:
+    element:
+      text: "Order confirmed"
+    direction: UP

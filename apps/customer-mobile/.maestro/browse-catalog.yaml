@@ -1,0 +1,11 @@
+# Customer app: seeded catalog is browsable and searchable.
+# Tapping the non-interactive header dismisses the keyboard on both platforms
+# (Maestro's hideKeyboard is unreliable on the iOS simulator).
+appId: kz.altynmarket.customer.demo
+---
+- runFlow: login.yaml
+- tapOn: "Search products"
+- inputText: "E2E Apples"
+- tapOn: "Altyn Market"
+- assertVisible: "E2E Apples"
+- assertVisible: ".*KZT / kg"

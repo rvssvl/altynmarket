@@ -1,0 +1,8 @@
+# Per-platform wrapper: separate customer accounts keep the concurrent iOS
+# and Android jobs from racing for one server-side cart.
+appId: kz.altynmarket.customer.demo
+---
+- runFlow:
+    file: _checkout-steps.yaml
+    env:
+      PHONE: "+77000000011"

@@ -1,0 +1,176 @@
+name: E2E
+
+# Full end-to-end suite against staging:
+#   web    — Playwright drives admin-staging in headless Chromium
+#   mobile — EAS Workflows build both Expo apps and run Maestro flows
+#            on EAS-hosted Android emulators and iOS simulators
+#   report — aggregates everything into one page on GitHub Pages
+on:
+  workflow_run:
+    workflows: ["Deploy staging"]
+    types: [completed]
+  schedule:
+    - cron: "0 22 * * *" # 03:00 Almaty, nightly
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: Which platforms to test
+        type: choice
+        options: [all, web, mobile]
+        default: all
+      release:
+        description: Also build demo apps (iOS → TestFlight, Android → install link)
+        type: boolean
+        default: false
+
+concurrency:
+  group: e2e
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  web:
+    name: Web (Playwright)
+    if: >-
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
+      (github.event.inputs.platforms == null || github.event.inputs.platforms != 'mobile')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build shared packages
+        run: pnpm --filter @altyn-market/domain build && pnpm --filter @altyn-market/client build
+      - name: Install Playwright Chromium
+        run: pnpm --filter @altyn-market/e2e exec playwright install --with-deps chromium
+      - name: Seed staging test data
+        run: pnpm --filter @altyn-market/e2e seed
+      - name: Run Playwright suite
+        run: pnpm --filter @altyn-market/e2e test:web
+      - name: Upload web artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-results
+          path: |
+            e2e/playwright/report
+            e2e/playwright/results.json
+          retention-days: 30
+
+  mobile:
+    name: Mobile ${{ matrix.app }} (Maestro on EAS)
+    if: >-
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
+      (github.event.inputs.platforms == null || github.event.inputs.platforms != 'web')
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [customer-mobile, staff-mobile]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build shared packages
+        run: pnpm --filter @altyn-market/domain build && pnpm --filter @altyn-market/client build
+      - name: Prepare staging fixtures for Maestro flows
+        run: pnpm --filter @altyn-market/e2e fixtures:mobile
+      - name: Run EAS e2e workflow (build + Maestro, iOS + Android)
+        working-directory: apps/${{ matrix.app }}
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          npx --yes eas-cli@21.0.1 workflow:run e2e.yml --non-interactive --wait --json \
+            | tee ../../eas-run-${{ matrix.app }}.json
+      - name: Upload EAS run metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eas-run-${{ matrix.app }}
+          path: eas-run-${{ matrix.app }}.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  release:
+    name: Demo release ${{ matrix.app }} (TestFlight + Android link)
+    # Manual-only for now: iOS auto-submit needs an App Store Connect API Key
+    # stored in EAS credentials, and each run costs 4 cloud builds. Flip the
+    # condition to include workflow_run once the ASC key is in place.
+    if: >-
+      github.event_name == 'workflow_dispatch' && github.event.inputs.release == 'true'
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [customer-mobile, staff-mobile]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build iOS demo and auto-submit to TestFlight
+        working-directory: apps/${{ matrix.app }}
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          npx --yes eas-cli@21.0.1 build --platform ios --profile demo \
+            --auto-submit --non-interactive --no-wait
+      - name: Build Android internal APK (install via link/QR on expo.dev)
+        working-directory: apps/${{ matrix.app }}
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          npx --yes eas-cli@21.0.1 build --platform android --profile preview \
+            --non-interactive --no-wait
+
+  report:
+    name: Publish combined report
+    needs: [web, mobile]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Checkout published report history
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: previous
+      - name: Build combined report
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WEB_RESULT: ${{ needs.web.result }}
+          MOBILE_RESULT: ${{ needs.mobile.result }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: node e2e/scripts/build-report.mjs artifacts report-out
+      - name: Publish to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: report-out
+          keep_files: true

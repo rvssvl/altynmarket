@@ -594,7 +594,7 @@ function CustomerApp() {
     return (
       <SafeAreaView style={styles.safe}>
         <StatusBar style="dark" />
-        <ScrollView contentContainerStyle={styles.container}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.container}>
           <View style={styles.authHeader}>
             <Text style={styles.kicker}>Customer app</Text>
             <Text style={styles.title}>Altyn Market</Text>
@@ -715,6 +715,7 @@ function CustomerApp() {
         />
 
         <ScrollView
+          keyboardShouldPersistTaps="handled"
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterRow}
@@ -1348,7 +1349,7 @@ function CustomerApp() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="dark" />
-      <ScrollView contentContainerStyle={styles.authedContainer}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.authedContainer}>
         <View style={styles.header}>
           <View>
             <Text style={styles.kicker}>Customer app</Text>

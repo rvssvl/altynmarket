@@ -477,7 +477,7 @@ function StaffApp() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="dark" />
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.container}>
         <View style={styles.header}>
           <View style={styles.headerTitle}>
             <Text style={styles.kicker}>Staff app</Text>

@@ -1,0 +1,58 @@
+# Shared courier steps; PHONE is provided by the per-platform wrapper flow.
+# The task list can take a while to sync from staging, and re-renders after
+# each status change reset the scroll position — hence waits + scrolls.
+appId: kz.altynmarket.staff.demo
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "\\+7.*"
+- eraseText
+- inputText: ${PHONE}
+- tapOn: "Send OTP"
+- assertVisible: "OTP code"
+- tapOn: "Sign in"
+- assertVisible: "Delivery Queue"
+- extendedWaitUntil:
+    visible: "Assigned"
+    timeout: 60000
+- tapOn:
+    text: "Assigned"
+    index: 0
+- scrollUntilVisible:
+    element:
+      text: "Delivery states"
+    direction: DOWN
+- scrollUntilVisible:
+    element:
+      text: "Pickup"
+    direction: DOWN
+- tapOn: "Pickup"
+- extendedWaitUntil:
+    notVisible: "Saving..."
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "Picked up"
+    direction: DOWN
+- tapOn: "Picked up"
+- extendedWaitUntil:
+    notVisible: "Saving..."
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "On way"
+    direction: DOWN
+- tapOn: "On way"
+- extendedWaitUntil:
+    notVisible: "Saving..."
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "Delivered"
+    direction: DOWN
+- tapOn: "Delivered"
+- extendedWaitUntil:
+    notVisible: "Saving..."
+    timeout: 15000
+- assertVisible: "Delivered"
