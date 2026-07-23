@@ -18,7 +18,7 @@
     "eas:update:production": "npx --yes eas-cli@21.0.1 update --channel production",
     "test": "vitest run --passWithNoTests --dir src",
     "eas:release:demo": "npx --yes eas-cli@21.0.1 build --platform ios --profile demo --auto-submit --non-interactive",
-    "eas:release:demo:local": "EAS_SKIP_AUTO_FINGERPRINT=1 npm_config_yes=true npx --yes eas-cli@21.0.1 build --platform ios --profile demo --local --non-interactive --output ./build-demo.ipa && npx --yes eas-cli@21.0.1 submit --platform ios --path ./build-demo.ipa --non-interactive"
+    "eas:release:demo:local": "EAS_SKIP_AUTO_FINGERPRINT=1 npm_config_yes=true npx --yes eas-cli@21.0.1 build --platform ios --profile demo --local --non-interactive --output ./build-demo.ipa && npx --yes eas-cli@21.0.1 submit --platform ios --profile demo --path ./build-demo.ipa --non-interactive"
   },
   "dependencies": {
     "@altyn-market/client": "workspace:*",
